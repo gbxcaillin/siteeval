@@ -4,15 +4,26 @@
  * Runs two queries: the brand name (presence + social profiles) and
  * `site:host` (pages the search engine has indexed).
  */
+// Matched against the parsed HOST (anchored), never a substring of the URL,
+// so mavex.com / webflex.com aren't mistaken for x.com.
 const SOCIAL_HOSTS = [
-  { platform: 'LinkedIn', re: /linkedin\.com/i },
-  { platform: 'Instagram', re: /instagram\.com/i },
-  { platform: 'Facebook', re: /facebook\.com/i },
-  { platform: 'X (Twitter)', re: /(twitter|x)\.com/i },
-  { platform: 'YouTube', re: /(youtube\.com|youtu\.be)/i },
-  { platform: 'TikTok', re: /tiktok\.com/i },
-  { platform: 'Pinterest', re: /pinterest\./i },
+  { platform: 'LinkedIn', re: /(^|\.)linkedin\.com$/i },
+  { platform: 'Instagram', re: /(^|\.)instagram\.com$/i },
+  { platform: 'Facebook', re: /(^|\.)facebook\.com$/i },
+  { platform: 'X (Twitter)', re: /(^|\.)(twitter\.com|x\.com)$/i },
+  { platform: 'YouTube', re: /(^|\.)(youtube\.com|youtu\.be)$/i },
+  { platform: 'TikTok', re: /(^|\.)tiktok\.com$/i },
+  { platform: 'Pinterest', re: /(^|\.)pinterest\.[a-z.]+$/i },
 ];
+
+/** Parse a URL's host, lowercased; null if unparseable. */
+function hostOf(u) {
+  try { return new URL(u).host.toLowerCase(); } catch { return null; }
+}
+/** Is `host` the site's own domain (exact or a subdomain of it)? */
+function sameSite(host, site) {
+  return !!host && (host === site || host.endsWith('.' + site));
+}
 
 export async function searchPresence(brand, host) {
   const provider = (process.env.SEARCH_PROVIDER || '').toLowerCase();
@@ -26,18 +37,20 @@ export async function searchPresence(brand, host) {
     ]);
     if (brandLinks.error) return { error: brandLinks.error };
 
+    const site = String(host).toLowerCase();
     const clean = brandLinks.links.filter(Boolean);
-    const ownDomain = clean.filter((l) => l.includes(host)).length;
+    const ownDomain = clean.filter((l) => sameSite(hostOf(l), site)).length;
 
-    // Social profiles that surface when you search the brand.
+    // Social profiles that surface when you search the brand (matched by host).
     const socialProfiles = [];
     const seen = new Set();
     for (const link of clean) {
-      const hit = SOCIAL_HOSTS.find((s) => s.re.test(link));
+      const h = hostOf(link);
+      const hit = h && SOCIAL_HOSTS.find((s) => s.re.test(h));
       if (hit && !seen.has(hit.platform)) { seen.add(hit.platform); socialProfiles.push({ platform: hit.platform, url: link, source: 'search' }); }
     }
 
-    const indexedPages = (siteLinks.links || []).filter((l) => l && l.includes(host));
+    const indexedPages = (siteLinks.links || []).filter((l) => sameSite(hostOf(l), site));
 
     return {
       brandResults: clean.length,

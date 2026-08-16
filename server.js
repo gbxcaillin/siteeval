@@ -6,7 +6,13 @@ import { analyze } from './src/engine/analyze.js';
 import { compare } from './src/engine/compare.js';
 import { renderReportHTML } from './src/report/printTemplate.js';
 import { renderPDF } from './src/report/pdf.js';
-import { leadgenOn, stashReport, claimReport, teaser, saveLead, listLeads, setContacted, isClaimed, unlockToken, isUnlocked } from './src/leads.js';
+import { leadgenOn, stashReport, claimReport, teaser, saveLead, listLeads, setContacted, isClaimed, unlockToken, unlockedHost } from './src/leads.js';
+import { normaliseUrl } from './src/engine/fetchSite.js';
+
+/** Host of a requested URL, or null if it won't parse. */
+function reqHost(url) {
+  try { return normaliseUrl(url).host.toLowerCase(); } catch { return null; }
+}
 import { renderLeadsPage } from './src/report/leadsPage.js';
 
 // Load .env if present (tiny loader — no dependency needed).
@@ -111,8 +117,11 @@ app.post('/api/compare', async (req, res) => {
 app.get('/report', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).send('Missing ?url=');
-  if (leadgenOn() && !isUnlocked(req.query.token)) {
-    return res.status(403).send('This report is locked. Please unlock it via the evaluator first.');
+  if (leadgenOn()) {
+    const host = unlockedHost(req.query.token);
+    if (!host || host !== reqHost(url)) {
+      return res.status(403).send('This report is locked. Please unlock it via the evaluator first.');
+    }
   }
   try {
     const report = await analyze(url, { crawl: req.query.crawl === '1' });
@@ -126,8 +135,11 @@ app.get('/report', async (req, res) => {
 app.post('/api/report.pdf', async (req, res) => {
   const url = (req.body && req.body.url) || '';
   if (!url) return res.status(400).json({ error: 'Please provide a website URL.' });
-  if (leadgenOn() && !isUnlocked(req.body && req.body.token)) {
-    return res.status(403).json({ error: 'This report is locked. Please unlock it via the evaluator first.' });
+  if (leadgenOn()) {
+    const host = unlockedHost(req.body && req.body.token);
+    if (!host || host !== reqHost(url)) {
+      return res.status(403).json({ error: 'This report is locked. Please unlock it via the evaluator first.' });
+    }
   }
   try {
     const report = await analyze(url, { crawl: !!(req.body && req.body.crawl) });

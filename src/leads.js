@@ -14,7 +14,8 @@ export function leadgenOn() {
 
 /* ── Short-lived cache of full reports, keyed by an opaque token ────── */
 const cache = new Map(); // token -> { report, expires, unlocked, leadId }
-const TTL_MS = 30 * 60 * 1000;
+const TTL_MS = 30 * 60 * 1000; // teaser token lifetime before capture
+const UNLOCK_TTL_MS = 24 * 60 * 60 * 1000; // keep alive after email capture
 
 export function stashReport(report) {
   const token = randomBytes(12).toString('hex');
@@ -39,11 +40,17 @@ export function unlockToken(token, leadId) {
   const e = entryFor(token);
   if (!e) return;
   e.unlocked = true;
+  e.expires = Date.now() + UNLOCK_TTL_MS; // extend so a returning lead can re-download
   if (leadId) e.leadId = leadId;
 }
 /** Is this token unlocked — i.e. has the visitor given their email? */
 export function isUnlocked(token) {
   return !!entryFor(token)?.unlocked;
+}
+/** The host an unlocked token was issued for (null if not unlocked/expired). */
+export function unlockedHost(token) {
+  const e = entryFor(token);
+  return e && e.unlocked ? (e.report?.meta?.host || null) : null;
 }
 
 /** Build the un-gated "teaser" a visitor sees before giving their email. */
@@ -68,11 +75,21 @@ export function teaser(report) {
 /* ── Lead store (updatable JSON array) ──────────────────────────────── */
 function readAll() {
   if (!existsSync(LEADS_FILE)) return [];
+  let parsed;
   try {
-    return JSON.parse(readFileSync(LEADS_FILE, 'utf8'));
+    parsed = JSON.parse(readFileSync(LEADS_FILE, 'utf8'));
   } catch {
-    return [];
+    parsed = null;
   }
+  if (Array.isArray(parsed)) return parsed;
+  // Corrupt or unexpected shape — preserve it (don't let the next save clobber
+  // every existing lead) by moving it aside, then start clean.
+  try {
+    renameSync(LEADS_FILE, LEADS_FILE.replace(/\.json$/, `.corrupt-${Date.now()}.json`));
+  } catch {
+    /* best effort */
+  }
+  return [];
 }
 function writeAll(list) {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
