@@ -1,5 +1,10 @@
 import { buildResult } from '../grade.js';
 
+/** Trim a full URL to a readable path for findings. */
+function shortPath(u) {
+  try { return new URL(u).pathname || u; } catch { return u; }
+}
+
 /** Search discoverability: can Google find, index and understand this page? */
 export function checkSeo(site, f, ctx = {}) {
   const d = [];
@@ -94,6 +99,23 @@ export function checkSeo(site, f, ctx = {}) {
     }
     if (s.missingMetas === 0 && s.duplicateTitles === 0) {
       credits.push({ finding: `Consistent titles & metas across ${s.pagesConsidered} pages.` });
+    }
+  }
+
+  // Discovery: pages that are indexable but not linked from the homepage.
+  const disc = ctx.discovery;
+  if (disc) {
+    if (disc.unlinkedCount > 0) {
+      d.push({ points: Math.min(7, 2 + disc.unlinkedCount), severity: 'warn', finding: `${disc.unlinkedCount} page(s) are in the sitemap but not linked from the homepage — orphan pages users can't find by clicking${disc.unlinkedPages[0] ? ` (e.g. ${shortPath(disc.unlinkedPages[0])})` : ''}.`, rec: 'Review orphan pages: link the ones that matter into the navigation, and noindex or remove the rest.' });
+    }
+    if (disc.search && disc.search.searchOnlyCount > 0) {
+      d.push({ points: 3, severity: 'warn', finding: `${disc.search.searchOnlyCount} page(s) show up in search results but aren't linked from the homepage.`, rec: 'Make sure search-visible pages are either linked and on-brand, or removed if outdated.' });
+    }
+    if (disc.notableHidden.length > 0) {
+      d.push({ points: 2, severity: 'warn', finding: `robots.txt hides paths that may reveal admin/staging areas: ${disc.notableHidden.slice(0, 4).join(', ')}.`, rec: 'Confirm sensitive areas are protected by auth, not just hidden from crawlers (robots.txt is public).' });
+    }
+    if (disc.sitemap.found && disc.sitemap.urlCount > 0 && disc.unlinkedCount === 0) {
+      credits.push({ finding: `Sitemap lists ${disc.sitemap.urlCount} pages, all reachable from the site.` });
     }
   }
 

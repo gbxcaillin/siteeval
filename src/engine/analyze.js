@@ -2,6 +2,7 @@ import { load as cheerioLoad } from 'cheerio';
 import { fetchSite } from './fetchSite.js';
 import { extractFacts } from './extract.js';
 import { crawlSite } from './crawl.js';
+import { discover } from './discover.js';
 import { letterGrade, band } from './grade.js';
 
 import { checkSeo } from './checks/seo.js';
@@ -75,11 +76,14 @@ export async function analyze(input, opts = {}) {
     staticFacts.wordCount < 500;
   const partialAnalysis = likelyClientRendered && !renderedAnalysis;
 
-  // Crawl runs after facts are settled so SPA sites' rendered nav links are used.
-  const crawl = opts.crawl ? await crawlSite(site, facts).catch(() => null) : null;
+  // Crawl + discovery run after facts settle so SPA sites' rendered links are used.
+  const [crawl, discovery] = await Promise.all([
+    opts.crawl ? crawlSite(site, facts).catch(() => null) : null,
+    discover(site, facts, search).catch(() => null),
+  ]);
 
   const ext = { pageSpeed: ps, search, critique };
-  const ctx = { ext, crawl, render };
+  const ctx = { ext, crawl, render, discovery };
 
   const categories = [
     checkSeo(site, facts, ctx),
@@ -176,6 +180,7 @@ export async function analyze(input, opts = {}) {
           readability: render.readability || null,
         }
       : null,
+    discovery,
     prospect,
     snapshot: {
       title: facts.title,

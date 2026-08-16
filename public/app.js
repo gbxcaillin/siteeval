@@ -266,6 +266,9 @@ function renderReport(r, keepScroll) {
     $('r-crawl-wrap').style.display = 'none';
   }
 
+  // Discovery — orphan/indexed pages + social footprint
+  renderDiscovery(r.discovery);
+
   // Editorial
   const ed = r.editorial;
   if (ed && ed.verdict) {
@@ -329,6 +332,49 @@ function renderCompare(c) {
 
   compareResults.classList.add('on');
   compareResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Discovery: pages not linked from the homepage + social footprint ── */
+function renderDiscovery(disc) {
+  const wrap = $('r-discovery-wrap');
+  if (!disc) { wrap.style.display = 'none'; return; }
+  const orphans = disc.unlinkedPages || [];
+  const searchOnly = (disc.search && disc.search.searchOnlyPages) || [];
+  const socials = disc.socialProfiles || [];
+  const hidden = disc.notableHidden || [];
+  // Nothing worth showing?
+  if (!orphans.length && !searchOnly.length && !socials.length && !hidden.length && !disc.sitemap.found) {
+    wrap.style.display = 'none'; return;
+  }
+  wrap.style.display = '';
+
+  const pathList = (arr, cls) => `<ul class="disc-list ${cls}">${arr.map((u) => {
+    let path = u; try { const url = new URL(u); path = url.pathname + url.search; } catch {}
+    return `<li><a href="${esc(u)}" target="_blank" rel="noopener">${esc(path)}</a></li>`;
+  }).join('')}</ul>`;
+
+  const cards = [];
+  if (orphans.length) {
+    cards.push(`<div class="disc-card"><div class="disc-h"><span class="disc-n">${disc.unlinkedCount}</span> Orphan pages</div>
+      <p class="disc-sub">In the sitemap but not linked from the homepage — indexable, but invisible to visitors clicking through.</p>
+      ${pathList(orphans, 'warn')}${disc.unlinkedCount > orphans.length ? `<div class="disc-more">+${disc.unlinkedCount - orphans.length} more</div>` : ''}</div>`);
+  }
+  if (searchOnly.length) {
+    cards.push(`<div class="disc-card"><div class="disc-h"><span class="disc-n">${disc.search.searchOnlyCount}</span> Search-only pages</div>
+      <p class="disc-sub">Appear in search results but aren't linked from the homepage.</p>${pathList(searchOnly, 'warn')}</div>`);
+  }
+  if (hidden.length) {
+    cards.push(`<div class="disc-card"><div class="disc-h">🔒 Hidden paths</div>
+      <p class="disc-sub">robots.txt asks crawlers to skip these — worth confirming they're behind real auth (robots.txt is public).</p>
+      <div class="disc-chips">${hidden.map((h) => `<span class="chip">${esc(h)}</span>`).join('')}</div></div>`);
+  }
+  const socialCard = socials.length
+    ? `<div class="disc-card"><div class="disc-h">Social footprint</div>
+        <ul class="disc-social">${socials.map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.platform)}</a> <span class="src src-${s.source}">${s.source === 'search' ? 'found in search · not linked on site' : 'linked on site'}</span></li>`).join('')}</ul></div>`
+    : `<div class="disc-card"><div class="disc-h">Social footprint</div><p class="disc-sub">No social profiles found on the site${disc.search ? ' or in search' : ''}.</p></div>`;
+  cards.push(socialCard);
+
+  $('r-discovery').innerHTML = `<div class="disc-grid">${cards.join('')}</div>`;
 }
 
 /* ── Desktop & mobile preview ── */

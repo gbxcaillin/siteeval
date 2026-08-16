@@ -68,6 +68,17 @@ export function renderReportHTML(r) {
     ? `<div class="crawl"><b>Pages reviewed (${r.crawl.pagesCrawled + 1}):</b> Homepage, ${r.crawl.pages.map((p) => esc(p.label)).join(', ')}.</div>`
     : '';
 
+  const disc = r.discovery;
+  const path = (u) => { try { return new URL(u).pathname; } catch { return u; } };
+  const discBlock = disc && (disc.unlinkedCount || (disc.socialProfiles || []).length || disc.notableHidden.length)
+    ? `<h2><span class="lbl">Off the map</span>Indexed pages &amp; social footprint</h2>
+       <div class="disc">
+        ${disc.unlinkedCount ? `<p><b>${disc.unlinkedCount} orphan page(s)</b> — in the sitemap but not linked from the homepage: ${disc.unlinkedPages.slice(0, 8).map((u) => `<code>${esc(path(u))}</code>`).join(' ')}${disc.unlinkedCount > 8 ? ` +${disc.unlinkedCount - 8} more` : ''}.</p>` : ''}
+        ${disc.notableHidden.length ? `<p><b>Hidden paths</b> (robots.txt): ${disc.notableHidden.slice(0, 8).map((h) => `<code>${esc(h)}</code>`).join(' ')} — confirm these are behind real auth.</p>` : ''}
+        ${(disc.socialProfiles || []).length ? `<p><b>Social:</b> ${disc.socialProfiles.map((s) => `${esc(s.platform)} <span class="src">(${s.source === 'search' ? 'in search, not linked' : 'linked'})</span>`).join(' · ')}</p>` : `<p><b>Social:</b> none found.</p>`}
+       </div>`
+    : '';
+
   const rb = r.render && r.render.readability;
   const mobileBlock = rb && rb.verdict && rb.verdict !== 'unknown'
     ? `<div class="mobile mob-${rb.verdict}">
@@ -133,6 +144,7 @@ export function renderReportHTML(r) {
   .edit .rw { border-left:2px solid #2E8B6E; padding-left:10px; margin-top:10px; font-style:italic; color:#3a3f3d; }
   .crawl { color:#5b6360; font-size:10.5px; margin:10px 0 0; }
   .partial { margin:0 0 6px; padding:11px 14px; border-radius:8px; font-size:11px; background:#f7f1de; border:1px solid #e6d9b0; color:#6b571f; }
+  .disc { font-size:11px; color:#3a3f3d; } .disc p { margin:6px 0; } .disc code { background:#f1efe9; padding:1px 5px; border-radius:4px; font-size:10px; } .disc .src { color:#8a908d; }
   .shots { display:flex; gap:14px; align-items:flex-start; break-inside:avoid; }
   .shots figure { margin:0; } .shots figure img { border:1px solid #e6e6e3; border-radius:7px; width:340px; max-width:100%; display:block; }
   .shots figure.m img { width:150px; border-radius:12px; }
@@ -164,6 +176,7 @@ ${r.meta.partialAnalysis ? `<div class="partial"><b>Note:</b> this site renders 
 <h2><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
 <div class="cats">${cats}</div>
 ${crawlBlock}
+${discBlock}
 
 ${editorial ? `<h2><span class="lbl">Editorial read</span>Strategist's verdict</h2>${editorial}` : ''}
 

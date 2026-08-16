@@ -23,14 +23,20 @@ export function checkPresence(site, f, ctx = {}) {
     credits.push({ finding: `Ad pixels present: ${pixels.join(', ')}.` });
   }
 
-  // Social profiles
+  // Social profiles (linked on-site, plus any found via search discovery)
   const activeSocials = Object.entries(f.social).filter(([, v]) => v).map(([k]) => k);
+  const discovered = (ctx.discovery && ctx.discovery.socialProfiles) || [];
+  const searchOnly = discovered.filter((s) => s.source === 'search');
   if (activeSocials.length === 0) {
     d.push({ points: 8, severity: 'warn', finding: 'No social profiles linked — no visible presence beyond the website.', rec: 'Link active LinkedIn/Instagram profiles; for B2B, LinkedIn is essential.' });
   } else if (activeSocials.length < 2) {
     d.push({ points: 3, severity: 'warn', finding: `Only one social channel linked (${activeSocials[0]}).`, rec: 'Broaden presence to the 2–3 channels where the audience actually is.' });
   } else {
     credits.push({ finding: `Linked social channels: ${activeSocials.join(', ')}.` });
+  }
+  // A profile that exists (in search) but isn't linked from the site is a quick fix.
+  if (searchOnly.length > 0) {
+    d.push({ points: 3, severity: 'warn', finding: `Social profile(s) found in search but not linked from the site: ${searchOnly.map((s) => s.platform).join(', ')}.`, rec: 'Link your existing social profiles from the site header/footer so visitors (and search engines) connect them to the brand.' });
   }
 
   // Open Graph / shareability

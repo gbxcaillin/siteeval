@@ -114,7 +114,7 @@ export async function fetchSite(input) {
     html,
     $, // cheerio instance for the checks
     robots: { found: robots.ok, body: robots.text.slice(0, 20000) },
-    sitemap: { found: sitemap.ok },
+    sitemap: { found: sitemap.ok, url: origin + '/sitemap.xml', body: sitemap.text.slice(0, 200000) },
     httpProbe: { redirectsToHttps: httpProbe.ok && /^https:/i.test(httpProbe.url) },
     fetchedAt: new Date().toISOString(),
   };
