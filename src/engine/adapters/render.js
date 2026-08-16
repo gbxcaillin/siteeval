@@ -38,8 +38,12 @@ export async function renderViews(url) {
   }
 }
 
+const DESKTOP_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
 async function shoot(browser, url, viewport, isMobile) {
-  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile });
+  // Use a real desktop UA — a HeadlessChrome UA gets blocked by many WAFs.
+  const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile, userAgent: DESKTOP_UA });
   const out = await shootContext(ctx, url, viewport);
   await ctx.close().catch(() => {});
   return out;
@@ -48,21 +52,37 @@ async function shoot(browser, url, viewport, isMobile) {
 async function shootContext(ctx, url, viewport) {
   const page = await ctx.newPage();
   page.setDefaultNavigationTimeout(NAV_TIMEOUT);
-  try {
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
-    // Give late layout/fonts a moment, but don't hang on slow trackers.
-    await page.waitForTimeout(1200);
-  } catch {
-    /* proceed with whatever rendered */
+
+  // Navigate with one retry — transient resets shouldn't leave us on an error page.
+  let ok = false;
+  for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+    try {
+      if (attempt) await page.waitForTimeout(600);
+      const resp = await page.goto(url, { waitUntil: 'domcontentloaded' });
+      ok = !!resp && resp.status() < 400 && !page.url().startsWith('chrome-error://');
+    } catch {
+      ok = false;
+    }
   }
 
+  // If we never got a real page (blocked, reset, DNS), don't screenshot the
+  // browser's error page or measure it — report the view as unavailable.
+  if (!ok || page.url().startsWith('chrome-error://')) {
+    return { shot: null, readability: null, failed: true };
+  }
+
+  await page.waitForTimeout(1200); // let late layout/fonts settle
+
   let shot = null;
-  try {
-    // Default (no fullPage/clip) captures exactly the viewport, padding short pages.
-    const buf = await page.screenshot({ type: 'jpeg', quality: 55 });
-    shot = 'data:image/jpeg;base64,' + buf.toString('base64');
-  } catch {
-    /* no screenshot */
+  for (let attempt = 0; attempt < 2 && !shot; attempt++) {
+    try {
+      if (attempt) await page.waitForTimeout(800); // brief settle, then retry once
+      // Default (no fullPage/clip) captures exactly the viewport, padding short pages.
+      const buf = await page.screenshot({ type: 'jpeg', quality: 55, timeout: 8000 });
+      shot = 'data:image/jpeg;base64,' + buf.toString('base64');
+    } catch {
+      /* retry once, then give up */
+    }
   }
 
   let readability = null;
@@ -162,28 +182,31 @@ function assess(m, viewport) {
   const overflowPx = Math.max(0, Math.round((m.docWidth || vw) - vw));
   const overflowPct = Math.round((overflowPx / vw) * 100);
   const hasHorizontalScroll = overflowPx > 8;
-  const issues = [];        // blocking / unreadable-level problems
-  const opportunities = []; // "could be improved" optimisation notes
 
-  // Blocking issues
-  if (!m.hasViewportMeta) issues.push('No mobile viewport tag — the desktop layout is squeezed onto the phone screen.');
-  if (hasHorizontalScroll) issues.push(`Page is ${overflowPx}px wider than the screen (${overflowPct}% overflow) — users must pinch and scroll sideways.`);
-  if (m.bodyFont && m.bodyFont < 12) issues.push(`Base text is only ${Math.round(m.bodyFont)}px — too small to read comfortably on mobile.`);
-  if (m.tinyPct >= 30) issues.push(`${m.tinyPct}% of sampled text is under 12px.`);
-
-  // Optimisation opportunities (poorly configured but not broken)
+  // Genuine layout / legibility problems — these drive the verdict.
+  const problems = [];
+  if (!m.hasViewportMeta) problems.push('No mobile viewport tag — the desktop layout is squeezed onto the phone screen.');
+  if (hasHorizontalScroll) problems.push(`Page is ${overflowPx}px wider than the screen (${overflowPct}% overflow) — users must pinch and scroll sideways.`);
+  if (m.bodyFont && m.bodyFont < 12) problems.push(`Base text is only ${Math.round(m.bodyFont)}px — too small to read comfortably on mobile.`);
+  if (m.tinyPct >= 25) problems.push(`${m.tinyPct}% of the text is under 12px.`);
+  if (m.smallPct >= 55) problems.push(`${m.smallPct}% of text sits at 12–13px — legible but cramped; 16px reads better on mobile.`);
   if (m.hasViewportMeta && m.readableSheets > 0 && m.mediaQueries === 0)
-    opportunities.push('No responsive breakpoints detected — the mobile view is essentially the desktop layout scaled down, not designed for the screen.');
-  if (m.zoomDisabled) opportunities.push('Pinch-zoom is disabled (user-scalable=no) — a poor, inaccessible mobile setting.');
-  if (m.tapSmallPct >= 30 && m.tapTotal >= 4) opportunities.push(`${m.tapSmallPct}% of buttons/links are smaller than a comfortable 40px tap target — fiddly on a phone.`);
-  if ((!m.bodyFont || m.bodyFont >= 12) && m.smallPct >= 40) opportunities.push(`${m.smallPct}% of text sits at 12–13px — legible but cramped; 16px reads better on mobile.`);
-  if (m.hasViewportMeta && overflowPx > 0 && overflowPx <= 8) opportunities.push('Slight horizontal overflow — a stray element pokes past the screen edge.');
+    problems.push('No responsive breakpoints — the mobile view is essentially the desktop layout scaled down, not designed for the screen.');
 
-  // Verdict — severe = broken; moderate = works but poorly configured.
+  // Soft advisories — worth mentioning, but not enough on their own to fail a site.
+  const notes = [];
+  if (m.zoomDisabled) notes.push('Pinch-zoom is disabled (user-scalable=no) — a poor, inaccessible setting.');
+  if (m.tapSmallPct >= 50 && m.tapTotal >= 6) notes.push(`${m.tapSmallPct}% of buttons/links are under a comfortable 40px tap target.`);
+  if (m.smallPct >= 35 && m.smallPct < 55) notes.push(`Some text sits at 12–13px — a touch small for mobile.`);
+  if (m.hasViewportMeta && overflowPx > 0 && overflowPx <= 8) notes.push('A stray element pokes slightly past the screen edge.');
+
+  // Verdict — severe = broken; a real layout problem = poorly optimised; else ok.
   const severeOverflow = overflowPct >= 20 || overflowPx >= 120;
   const severe = !m.hasViewportMeta || severeOverflow || (m.bodyFont && m.bodyFont < 10);
-  const moderate = hasHorizontalScroll || (m.bodyFont && m.bodyFont < 12) || m.tinyPct >= 30 || opportunities.length > 0;
-  const verdict = severe ? 'unreadable' : moderate ? 'suboptimal' : 'ok';
+  const verdict = severe ? 'unreadable' : problems.length ? 'suboptimal' : 'ok';
+
+  // Problems first (they explain the verdict), then advisory notes.
+  const issues = problems.concat(notes);
 
   return {
     verdict,
@@ -197,6 +220,6 @@ function assess(m, viewport) {
     zoomDisabled: m.zoomDisabled,
     responsive: m.mediaQueries > 0,
     hasViewportMeta: m.hasViewportMeta,
-    issues: issues.concat(opportunities),
+    issues,
   };
 }
