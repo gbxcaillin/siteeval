@@ -6,7 +6,7 @@ import { analyze } from './src/engine/analyze.js';
 import { compare } from './src/engine/compare.js';
 import { renderReportHTML } from './src/report/printTemplate.js';
 import { renderPDF } from './src/report/pdf.js';
-import { leadgenOn, stashReport, claimReport, teaser, saveLead, listLeads, setContacted } from './src/leads.js';
+import { leadgenOn, stashReport, claimReport, teaser, saveLead, listLeads, setContacted, isClaimed, unlockToken, isUnlocked } from './src/leads.js';
 import { renderLeadsPage } from './src/report/leadsPage.js';
 
 // Load .env if present (tiny loader — no dependency needed).
@@ -58,11 +58,17 @@ app.post('/api/lead', async (req, res) => {
     return res.status(410).json({ error: 'This report link has expired — please run the evaluation again.' });
   }
   try {
-    saveLead({
-      email, name, company, report,
-      ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-      userAgent: req.headers['user-agent'] || '',
-    });
+    // Idempotent: a resubmitted/replayed token unlocks without a duplicate row.
+    if (!isClaimed(token)) {
+      const rec = saveLead({
+        email, name, company, report,
+        ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
+        userAgent: req.headers['user-agent'] || '',
+      });
+      unlockToken(token, rec.id);
+    } else {
+      unlockToken(token);
+    }
     res.json(report);
   } catch (err) {
     const status = err.code === 'BAD_EMAIL' ? 400 : 500;
@@ -105,6 +111,9 @@ app.post('/api/compare', async (req, res) => {
 app.get('/report', async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).send('Missing ?url=');
+  if (leadgenOn() && !isUnlocked(req.query.token)) {
+    return res.status(403).send('This report is locked. Please unlock it via the evaluator first.');
+  }
   try {
     const report = await analyze(url, { crawl: req.query.crawl === '1' });
     res.type('html').send(renderReportHTML(report));
@@ -117,6 +126,9 @@ app.get('/report', async (req, res) => {
 app.post('/api/report.pdf', async (req, res) => {
   const url = (req.body && req.body.url) || '';
   if (!url) return res.status(400).json({ error: 'Please provide a website URL.' });
+  if (leadgenOn() && !isUnlocked(req.body && req.body.token)) {
+    return res.status(403).json({ error: 'This report is locked. Please unlock it via the evaluator first.' });
+  }
   try {
     const report = await analyze(url, { crawl: !!(req.body && req.body.crawl) });
     const html = renderReportHTML(report);

@@ -13,19 +13,37 @@ export function leadgenOn() {
 }
 
 /* ── Short-lived cache of full reports, keyed by an opaque token ────── */
-const cache = new Map(); // token -> { report, expires }
+const cache = new Map(); // token -> { report, expires, unlocked, leadId }
 const TTL_MS = 30 * 60 * 1000;
 
 export function stashReport(report) {
   const token = randomBytes(12).toString('hex');
-  cache.set(token, { report, expires: Date.now() + TTL_MS });
+  cache.set(token, { report, expires: Date.now() + TTL_MS, unlocked: false, leadId: null });
   for (const [k, v] of cache) if (v.expires < Date.now()) cache.delete(k);
   return token;
 }
-export function claimReport(token) {
-  const hit = cache.get(token);
+function entryFor(token) {
+  const hit = token ? cache.get(token) : null;
   if (!hit || hit.expires < Date.now()) return null;
-  return hit.report;
+  return hit;
+}
+export function claimReport(token) {
+  return entryFor(token)?.report || null;
+}
+/** Has this token already produced a lead? (idempotent /api/lead) */
+export function isClaimed(token) {
+  return !!entryFor(token)?.leadId;
+}
+/** Mark a token as unlocked (email captured) and record its lead id. */
+export function unlockToken(token, leadId) {
+  const e = entryFor(token);
+  if (!e) return;
+  e.unlocked = true;
+  if (leadId) e.leadId = leadId;
+}
+/** Is this token unlocked — i.e. has the visitor given their email? */
+export function isUnlocked(token) {
+  return !!entryFor(token)?.unlocked;
 }
 
 /** Build the un-gated "teaser" a visitor sees before giving their email. */

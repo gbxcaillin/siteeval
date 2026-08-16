@@ -47,6 +47,12 @@ export function buildResult({ id, label, weight, deductions = [], credits = [], 
   score = Math.max(0, Math.min(100, Math.round(score)));
   recommendations.sort((a, b) => b.points - a.points);
 
+  // Surface problems first (bad → warn → good). Consumers slice to the top few
+  // findings, so ordering by severity keeps real issues from being crowded out
+  // by positive credits. Stable within each severity (insertion order kept).
+  const sev = { bad: 0, warn: 1, good: 2 };
+  findings.sort((a, b) => (sev[a.severity] ?? 3) - (sev[b.severity] ?? 3));
+
   return {
     id,
     label,

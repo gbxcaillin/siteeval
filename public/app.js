@@ -88,6 +88,7 @@ $('gateform').addEventListener('submit', async (e) => {
       name: $('lead-name').value.trim(),
       company: $('lead-company').value.trim(),
     });
+    window.__unlockToken = window.__gateToken; // proves email capture for PDF/report
     $('gate').style.display = 'none';
     $('fullreport').classList.remove('locked');
     renderReport(full, true);
@@ -135,9 +136,10 @@ async function downloadPDF() {
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'Preparing PDF…';
   try {
+    const tokenQS = window.__unlockToken ? `&token=${encodeURIComponent(window.__unlockToken)}` : '';
     const res = await fetch('/api/report.pdf', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ url: currentUrl, crawl: currentCrawl }),
+      body: JSON.stringify({ url: currentUrl, crawl: currentCrawl, token: window.__unlockToken }),
     });
     if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
       const blob = await res.blob();
@@ -149,11 +151,12 @@ async function downloadPDF() {
     } else {
       // Fallback: open the branded print view for browser "Save as PDF".
       const data = await res.json().catch(() => ({}));
-      const url = data.fallback || `/report?url=${encodeURIComponent(currentUrl)}${currentCrawl ? '&crawl=1' : ''}`;
+      const url = data.fallback || `/report?url=${encodeURIComponent(currentUrl)}${currentCrawl ? '&crawl=1' : ''}${tokenQS}`;
       window.open(url, '_blank');
     }
   } catch {
-    window.open(`/report?url=${encodeURIComponent(currentUrl)}${currentCrawl ? '&crawl=1' : ''}`, '_blank');
+    const tokenQS = window.__unlockToken ? `&token=${encodeURIComponent(window.__unlockToken)}` : '';
+    window.open(`/report?url=${encodeURIComponent(currentUrl)}${currentCrawl ? '&crawl=1' : ''}${tokenQS}`, '_blank');
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
@@ -199,7 +202,7 @@ function stopSteps(done) {
 function renderGate(t) {
   window.__gateToken = t.token;
   $('r-url').textContent = t.meta.host;
-  $('r-meta').innerHTML = `Analysed <a href="${t.meta.url}" target="_blank" rel="noopener">${t.meta.url}</a> · ${t.meta.elapsedMs} ms`;
+  $('r-meta').innerHTML = `Analysed <a href="${esc(t.meta.url)}" target="_blank" rel="noopener">${esc(t.meta.url)}</a> · ${t.meta.elapsedMs} ms`;
   $('r-adapters').innerHTML = '';
   $('r-ring').innerHTML = ring(t.overall.score, t.overall.grade);
   $('r-band').textContent = t.overall.band;
@@ -228,7 +231,7 @@ function renderReport(r, keepScroll) {
   $('fullreport').classList.remove('locked');
 
   $('r-url').textContent = r.meta.host;
-  $('r-meta').innerHTML = `Analysed <a href="${r.meta.url}" target="_blank" rel="noopener">${r.meta.url}</a> · ${r.meta.elapsedMs} ms · ${new Date(r.meta.fetchedAt).toLocaleString()}`;
+  $('r-meta').innerHTML = `Analysed <a href="${esc(r.meta.url)}" target="_blank" rel="noopener">${esc(r.meta.url)}</a> · ${r.meta.elapsedMs} ms · ${new Date(r.meta.fetchedAt).toLocaleString()}`;
   const pills = Object.entries(r.meta.adapters).map(([k, v]) => {
     const on = v === 'active';
     const label = { pageSpeed: 'PageSpeed', search: 'Search', claude: 'Claude AI' }[k] || k;

@@ -97,18 +97,28 @@ export function extractFacts(site) {
     squarespace: has(/squarespace/),
   };
 
-  // Social profile links
-  const socialPatterns = {
-    linkedin: /linkedin\.com/i,
-    instagram: /instagram\.com/i,
-    facebook: /facebook\.com/i,
-    x: /twitter\.com|x\.com/i,
-    youtube: /youtube\.com|youtu\.be/i,
-    tiktok: /tiktok\.com/i,
+  // Social profile links — match on the link's HOST with anchored domains so
+  // e.g. netflix.com / wix.com don't get mistaken for x.com. Only real linked
+  // profiles count (not any mention of the string anywhere in the HTML).
+  const socialHostPatterns = {
+    linkedin: /(^|\.)linkedin\.com$/i,
+    instagram: /(^|\.)instagram\.com$/i,
+    facebook: /(^|\.)facebook\.com$/i,
+    x: /(^|\.)(twitter\.com|x\.com)$/i,
+    youtube: /(^|\.)(youtube\.com|youtu\.be)$/i,
+    tiktok: /(^|\.)tiktok\.com$/i,
   };
-  const social = {};
-  for (const [k, re] of Object.entries(socialPatterns)) {
-    social[k] = external.some((l) => re.test(l.href)) || social[k] || re.test(bodyHtml);
+  const social = { linkedin: false, instagram: false, facebook: false, x: false, youtube: false, tiktok: false };
+  for (const l of external) {
+    let host;
+    try {
+      host = new URL(l.resolved || l.href).host;
+    } catch {
+      continue;
+    }
+    for (const [k, re] of Object.entries(socialHostPatterns)) {
+      if (re.test(host)) social[k] = true;
+    }
   }
 
   return {
