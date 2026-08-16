@@ -92,6 +92,8 @@ export function saveLead({ email, name, company, report, ip, userAgent }) {
     isSinglePage: !!p.isSinglePage,
     pages: p.pages ?? null,
     mobileBroken: !!p.mobileBroken,
+    mobileSuboptimal: !!p.mobileSuboptimal,
+    mobileVerdict: p.mobileVerdict || null,
     fastWin: p.fastWin || null,
     topFix: report.actionPlan?.[0]?.text || null,
     weakest: [...report.categories].sort((a, b) => a.score - b.score)[0]?.label || null,

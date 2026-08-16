@@ -323,7 +323,7 @@ function renderCompare(c) {
 /* ── Desktop & mobile preview ── */
 const MOBILE_VERDICT = {
   ok: { label: 'Reads well on mobile', cls: 'good', ic: '●' },
-  poor: { label: 'Poor on mobile', cls: 'warn', ic: '▲' },
+  suboptimal: { label: 'Poorly optimised for mobile', cls: 'warn', ic: '▲' },
   unreadable: { label: 'Unreadable on mobile', cls: 'bad', ic: '✕' },
   unknown: { label: 'Mobile view unavailable', cls: 'muted', ic: '–' },
 };

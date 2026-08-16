@@ -82,12 +82,16 @@ function measureInPage() {
   const docWidth = Math.max(de.scrollWidth, document.body ? document.body.scrollWidth : 0);
 
   const bodyFont = parseFloat(getComputedStyle(document.body || de).fontSize) || 16;
-  const hasViewportMeta = !!document.querySelector('meta[name="viewport"]');
+  const vpEl = document.querySelector('meta[name="viewport"]');
+  const hasViewportMeta = !!vpEl;
+  const viewportContent = (vpEl && vpEl.getAttribute('content')) || '';
+  // Zoom disabled is a classic "poorly configured" mobile anti-pattern.
+  const zoomDisabled = /user-scalable\s*=\s*(no|0)/i.test(viewportContent) || /maximum-scale\s*=\s*1(\.0+)?\b/i.test(viewportContent);
 
-  // Sample visible text elements for tiny-font detection.
-  let tiny = 0, sampled = 0;
+  // Sample visible text elements for small-font detection (two tiers).
+  let tiny = 0, small = 0, sampled = 0;
   const nodes = document.querySelectorAll('p,li,span,a,td,div,h1,h2,h3,h4,button,label');
-  for (let i = 0; i < nodes.length && sampled < 400; i++) {
+  for (let i = 0; i < nodes.length && sampled < 500; i++) {
     const el = nodes[i];
     const txt = (el.textContent || '').trim();
     if (!txt || txt.length < 2) continue;
@@ -96,6 +100,31 @@ function measureInPage() {
     sampled++;
     const fs = parseFloat(getComputedStyle(el).fontSize) || 16;
     if (fs < 12) tiny++;
+    else if (fs < 14) small++; // borderline — legible but not comfortable
+  }
+
+  // Tap-target check: interactive elements that are too small for a finger (<40px).
+  let tapTotal = 0, tapSmall = 0;
+  const inter = document.querySelectorAll('a,button,input,select,[role="button"],[onclick]');
+  for (let i = 0; i < inter.length && tapTotal < 400; i++) {
+    const el = inter[i];
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (r.top > 2000) continue; // only judge what's near the top
+    tapTotal++;
+    if (Math.min(r.width, r.height) < 40) tapSmall++;
+  }
+
+  // Does the page ship any responsive breakpoints at all? (same-origin sheets only)
+  let mediaQueries = 0, readableSheets = 0;
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const rules = sheet.cssRules; // throws for cross-origin
+      readableSheets++;
+      for (const rule of Array.from(rules)) {
+        if (rule.type === CSSRule.MEDIA_RULE && /max-width|min-width/i.test(rule.conditionText || rule.media?.mediaText || '')) mediaQueries++;
+      }
+    } catch { /* cross-origin sheet — can't inspect */ }
   }
 
   // Elements that push beyond the viewport (cause horizontal scroll).
@@ -111,29 +140,50 @@ function measureInPage() {
     docWidth,
     bodyFont,
     hasViewportMeta,
+    zoomDisabled,
     tinyPct: sampled ? Math.round((tiny / sampled) * 100) : 0,
+    smallPct: sampled ? Math.round((small / sampled) * 100) : 0,
+    tapTotal,
+    tapSmallPct: tapTotal ? Math.round((tapSmall / tapTotal) * 100) : 0,
+    mediaQueries,
+    readableSheets,
     widestOverflow: Math.round(widestOverflow),
   };
 }
 
-/* Turns raw metrics into a plain-language verdict. */
+/*
+ * Turns raw metrics into a plain-language verdict across three tiers:
+ *   ok           — renders well on mobile
+ *   suboptimal   — works, but poorly configured / looks awful; an easy optimise
+ *   unreadable   — effectively broken on a phone
+ */
 function assess(m, viewport) {
   const vw = m.vw || viewport.width;
   const overflowPx = Math.max(0, Math.round((m.docWidth || vw) - vw));
   const overflowPct = Math.round((overflowPx / vw) * 100);
   const hasHorizontalScroll = overflowPx > 8;
-  const issues = [];
+  const issues = [];        // blocking / unreadable-level problems
+  const opportunities = []; // "could be improved" optimisation notes
 
+  // Blocking issues
   if (!m.hasViewportMeta) issues.push('No mobile viewport tag — the desktop layout is squeezed onto the phone screen.');
   if (hasHorizontalScroll) issues.push(`Page is ${overflowPx}px wider than the screen (${overflowPct}% overflow) — users must pinch and scroll sideways.`);
   if (m.bodyFont && m.bodyFont < 12) issues.push(`Base text is only ${Math.round(m.bodyFont)}px — too small to read comfortably on mobile.`);
   if (m.tinyPct >= 30) issues.push(`${m.tinyPct}% of sampled text is under 12px.`);
 
-  // Verdict
-  let verdict = 'ok';
+  // Optimisation opportunities (poorly configured but not broken)
+  if (m.hasViewportMeta && m.readableSheets > 0 && m.mediaQueries === 0)
+    opportunities.push('No responsive breakpoints detected — the mobile view is essentially the desktop layout scaled down, not designed for the screen.');
+  if (m.zoomDisabled) opportunities.push('Pinch-zoom is disabled (user-scalable=no) — a poor, inaccessible mobile setting.');
+  if (m.tapSmallPct >= 30 && m.tapTotal >= 4) opportunities.push(`${m.tapSmallPct}% of buttons/links are smaller than a comfortable 40px tap target — fiddly on a phone.`);
+  if ((!m.bodyFont || m.bodyFont >= 12) && m.smallPct >= 40) opportunities.push(`${m.smallPct}% of text sits at 12–13px — legible but cramped; 16px reads better on mobile.`);
+  if (m.hasViewportMeta && overflowPx > 0 && overflowPx <= 8) opportunities.push('Slight horizontal overflow — a stray element pokes past the screen edge.');
+
+  // Verdict — severe = broken; moderate = works but poorly configured.
   const severeOverflow = overflowPct >= 20 || overflowPx >= 120;
-  if (!m.hasViewportMeta || severeOverflow || (m.bodyFont && m.bodyFont < 10)) verdict = 'unreadable';
-  else if (hasHorizontalScroll || (m.bodyFont && m.bodyFont < 12) || m.tinyPct >= 30) verdict = 'poor';
+  const severe = !m.hasViewportMeta || severeOverflow || (m.bodyFont && m.bodyFont < 10);
+  const moderate = hasHorizontalScroll || (m.bodyFont && m.bodyFont < 12) || m.tinyPct >= 30 || opportunities.length > 0;
+  const verdict = severe ? 'unreadable' : moderate ? 'suboptimal' : 'ok';
 
   return {
     verdict,
@@ -142,7 +192,11 @@ function assess(m, viewport) {
     overflowPct,
     bodyFontPx: Math.round(m.bodyFont || 0),
     tinyTextPct: m.tinyPct,
+    smallTextPct: m.smallPct,
+    tapSmallPct: m.tapSmallPct,
+    zoomDisabled: m.zoomDisabled,
+    responsive: m.mediaQueries > 0,
     hasViewportMeta: m.hasViewportMeta,
-    issues,
+    issues: issues.concat(opportunities),
   };
 }

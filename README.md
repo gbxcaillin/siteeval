@@ -42,9 +42,18 @@ was seen.
   browser "Save as PDF".
 - **Desktop & mobile capture** — every evaluation renders the site headlessly
   at **desktop 16:9 (1280×720)** and **mobile (390×844)**, shows both
-  screenshots in the report, and runs a **mobile-readability check** that flags
-  sites which are *unreadable on mobile* (no viewport tag, horizontal overflow,
-  tiny text). The verdict feeds the Performance score and appears in the PDF.
+  screenshots in the report, and runs a **mobile-readability check** with three
+  verdicts:
+  - **Unreadable** — broken on a phone (no viewport tag, severe horizontal
+    overflow, sub-10px text).
+  - **Poorly optimised** — it works, but it's a shrunk-down desktop rather than
+    a mobile design: no responsive breakpoints, pinch-zoom disabled, tiny tap
+    targets, or cramped 12–13px text. An easy optimisation win.
+  - **Reads well** — properly responsive.
+
+  The verdict feeds the Performance score, appears in the PDF, and surfaces on
+  the Leads page (a "mobile-broken" or "poorly optimised" flag and a matching
+  fastest-win suggestion).
 - **Lead-gen mode + Leads page** *(optional)* — set `LEADGEN_MODE=on` and the
   full scorecard, action plan and PDF are gated behind an email capture. The
   visitor sees the overall grade and a teaser; entering their details unlocks

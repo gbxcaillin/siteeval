@@ -38,6 +38,7 @@ export function renderLeadsPage() {
   .who .flags{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
   .flag{font-size:10.5px;letter-spacing:.4px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);color:var(--dim);}
   .flag.single{border-color:var(--teal-deep);color:var(--teal);} .flag.mobile{border-color:#5a2a24;color:#E58A7D;background:rgba(199,89,75,.08);}
+  .flag.mobile-sub{border-color:#5a4d24;color:#D9BC77;background:rgba(201,162,74,.08);}
   .flag.score-bad{color:#E58A7D;} .flag.score-warn{color:#D9BC77;} .flag.score-good{color:var(--teal);}
   .actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex:none;}
   .when{color:var(--faint);font-size:11.5px;}
@@ -84,7 +85,7 @@ function row(l){
   const flags=[
     '<span class="flag score-'+scoreCls(l.score)+'">'+l.score+'/100 · '+l.grade+'</span>',
     l.isSinglePage?'<span class="flag single">Single-page</span>':'',
-    l.mobileBroken?'<span class="flag mobile">✕ Mobile-broken</span>':'',
+    l.mobileBroken?'<span class="flag mobile">✕ Mobile-broken</span>':(l.mobileSuboptimal?'<span class="flag mobile-sub">▲ Mobile: poorly optimised</span>':''),
     l.weakest?'<span class="flag">Weakest: '+esc(l.weakest)+'</span>':''
   ].join('');
   return '<div class="lead'+(l.contacted?' contacted':'')+'">'

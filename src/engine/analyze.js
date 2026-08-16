@@ -170,18 +170,23 @@ function computeProspect({ facts, crawl, overallScore, categories, render, actio
   const pages = crawl && crawl.enabled ? crawl.pagesCrawled + 1 : Math.min(distinctPaths.size + 1, 12);
   const isSinglePage = pages <= 1 || distinctPaths.size <= 1;
 
+  const mobileVerdict = render && render.readability ? render.readability.verdict : null;
+  const mobileBroken = mobileVerdict === 'unreadable';
+  const mobileSuboptimal = mobileVerdict === 'suboptimal';
+
   const headroom = 100 - overallScore; // how much there is to gain
   const simplicity = isSinglePage ? 100 : Math.max(20, 100 - pages * 9); // less site = simpler fix
-  const mobileBroken = render && render.readability && render.readability.verdict === 'unreadable';
 
   let easeScore = Math.round(headroom * 0.55 + simplicity * 0.45);
   if (mobileBroken) easeScore = Math.min(100, easeScore + 8); // obvious, sellable fix
+  else if (mobileSuboptimal) easeScore = Math.min(100, easeScore + 4); // visible, easy optimise
 
   // Human-readable "fastest win" label.
   const weakest = [...categories].sort((a, b) => a.score - b.score)[0];
   let fastWin;
   if (isSinglePage && overallScore < 65) fastWin = 'Single-page site — a quick redesign is a fast, high-impact win';
   else if (mobileBroken) fastWin = 'Unreadable on mobile — a responsive rebuild is an easy sell';
+  else if (mobileSuboptimal) fastWin = 'Mobile view is poorly optimised — a responsive tidy-up is a quick, visible win';
   else if (weakest && weakest.score < 55) fastWin = `Weakest area is ${weakest.label.toLowerCase()} — concentrated, fixable fast`;
   else fastWin = actionPlan[0] ? `Start with: ${actionPlan[0].text}` : 'Incremental improvements available';
 
@@ -190,7 +195,9 @@ function computeProspect({ facts, crawl, overallScore, categories, render, actio
     isSinglePage,
     headroom,
     easeScore,
+    mobileVerdict,
     mobileBroken: !!mobileBroken,
+    mobileSuboptimal: !!mobileSuboptimal,
     fastWin,
   };
 }

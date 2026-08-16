@@ -71,7 +71,7 @@ export function renderReportHTML(r) {
   const rb = r.render && r.render.readability;
   const mobileBlock = rb && rb.verdict && rb.verdict !== 'unknown'
     ? `<div class="mobile mob-${rb.verdict}">
-        <b>Mobile readability: ${rb.verdict === 'ok' ? 'Reads well' : rb.verdict === 'poor' ? 'Poor' : 'Unreadable'}.</b>
+        <b>Mobile: ${rb.verdict === 'ok' ? 'Reads well' : rb.verdict === 'suboptimal' ? 'Poorly optimised' : 'Unreadable'}.</b>
         ${(rb.issues || []).length ? esc(rb.issues.join(' ')) : 'No blocking mobile issues detected.'}
       </div>`
     : '';
@@ -138,7 +138,7 @@ export function renderReportHTML(r) {
   .shots figcaption { color:#8a908d; font-size:9.5px; margin-top:5px; }
   .mobile { margin:12px 0 0; padding:11px 14px; border-radius:8px; font-size:11px; color:#3a3f3d; background:#f4f8f6; border:1px solid #dceae4; break-inside:avoid; }
   .mobile.mob-unreadable { background:#f6ded9; border-color:#eec7bf; color:#7a2c1f; }
-  .mobile.mob-poor { background:#f3ebd6; border-color:#e6d9b0; }
+  .mobile.mob-suboptimal { background:#f3ebd6; border-color:#e6d9b0; }
   .pagefoot { margin-top:30px; border-top:1px solid #eee; padding-top:12px; color:#9aa09d; font-size:9.5px; display:flex; justify-content:space-between; }
 </style></head><body>
 

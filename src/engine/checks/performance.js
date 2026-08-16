@@ -65,8 +65,8 @@ export function checkPerformance(site, f, ctx = {}) {
   if (mob && mob.verdict && mob.verdict !== 'unknown') {
     if (mob.verdict === 'unreadable') {
       d.push({ points: 18, severity: 'bad', priority: 'high', finding: `Effectively unreadable on mobile — ${mob.issues[0] || 'the layout breaks on a phone screen.'}`, rec: 'Rebuild the site responsively so it is legible on mobile — most visitors are on phones.' });
-    } else if (mob.verdict === 'poor') {
-      d.push({ points: 8, severity: 'warn', finding: `Poor mobile experience — ${mob.issues[0] || 'text or layout issues on small screens.'}`, rec: 'Fix mobile layout: remove horizontal scrolling and increase small text.' });
+    } else if (mob.verdict === 'suboptimal') {
+      d.push({ points: 9, severity: 'warn', finding: `Poorly optimised for mobile — ${mob.issues[0] || 'it works but is not designed for the phone screen.'}`, rec: mob.responsive === false ? 'Add responsive breakpoints so the mobile layout is designed for the screen, not just a shrunk-down desktop.' : 'Tidy the mobile layout: larger tap targets, comfortable 16px text, and re-enable pinch-zoom.' });
     } else {
       credits.push({ finding: 'Renders cleanly and legibly on mobile.' });
     }
