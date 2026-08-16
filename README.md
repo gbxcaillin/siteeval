@@ -101,9 +101,34 @@ gracefully to "not configured" if absent.
 |---|---|
 | `ANTHROPIC_API_KEY` | **Editorial read** — a GBX strategist's qualitative verdict on positioning, clarity and CTA strength, plus a proposed rewrite of the hero headline. Uses the Claude API. |
 | `PAGESPEED_API_KEY` | Real Google **PageSpeed / Lighthouse** performance score + Core Web Vitals (LCP/CLS/TBT), blended into the Performance dimension. |
-| `SEARCH_PROVIDER` + `SEARCH_API_KEY` | Real **search-footprint** signal (how discoverable the brand is beyond its own site). Supports `serpapi` or `brave`. |
+| `SEARCH_PROVIDER` + `SEARCH_API_KEY` | The **"How you show up in search"** section — real top results for the brand, classified (your site / social / directory / third-party) with highlights — plus indexed & search-only page detection. Supports `serpapi` or `brave`. |
 
 Adapter status is shown live in the report header (on/off pills).
+
+### Enable search results with the free SerpApi tier
+
+SerpApi has a **free plan (100 searches/month)** — enough to demo and to run a
+handful of prospect reports. Each evaluation uses **2 searches** (the brand
+query + a `site:` query), so the free tier covers ~50 reports/month.
+
+1. Create a free account at **https://serpapi.com/users/sign_up**.
+2. Copy your key from the dashboard: **https://serpapi.com/manage-api-key**.
+3. Add it to your `.env`:
+
+   ```env
+   SEARCH_PROVIDER=serpapi
+   SEARCH_API_KEY=your_serpapi_key_here
+   ```
+
+4. Restart (`npm start`). The report header will show **Search: on** and every
+   evaluation gains the "How you show up in search" section.
+
+No credit card is required for the free tier. If you exceed the monthly quota,
+SerpApi returns an error and the tool simply degrades — the rest of the report
+still runs, and the search section shows the "connect a search source" note.
+
+> **Alternative — Brave Search API:** set `SEARCH_PROVIDER=brave` and use a Brave
+> Search API key instead (it also has a free tier). Same behaviour.
 
 ---
 
