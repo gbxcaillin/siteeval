@@ -91,6 +91,7 @@ export async function discover(site, facts, searchResult) {
     search: search
       ? { indexedCount: search.indexedPages.length, searchOnlyPages: searchOnlyPages.slice(0, 15), searchOnlyCount: searchOnlyPages.length }
       : null,
+    serp: searchResult && !searchResult.error ? (searchResult.serp || null) : null,
   };
 }
 

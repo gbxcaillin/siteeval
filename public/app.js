@@ -269,6 +269,9 @@ function renderReport(r, keepScroll) {
     $('r-crawl-wrap').style.display = 'none';
   }
 
+  // Search results — how the brand shows up in search
+  renderSearch(r.discovery, r.meta);
+
   // Discovery — orphan/indexed pages + social footprint
   renderDiscovery(r.discovery);
 
@@ -335,6 +338,44 @@ function renderCompare(c) {
 
   compareResults.classList.add('on');
   compareResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Search results: how the brand shows up in search ── */
+const KIND_TAG = {
+  you: { label: 'Your site', cls: 'you' },
+  social: { label: 'Social', cls: 'social' },
+  directory: { label: 'Directory / reviews', cls: 'dir' },
+  'third-party': { label: 'Third-party', cls: 'tp' },
+};
+function renderSearch(disc, meta) {
+  const wrap = $('r-serp-wrap');
+  const serp = disc && disc.serp;
+  if (!serp || !serp.rows || !serp.rows.length) {
+    // Show a subtle note that connecting a search source unlocks this (UI only).
+    wrap.style.display = '';
+    $('r-serp').innerHTML = `<div class="serp-empty">Connect a search source (SerpApi or Brave) to include a live analysis of how <b>${esc(meta.host)}</b> appears in search results — the profiles, listings and pages people actually see when they look you up.</div>`;
+    return;
+  }
+  wrap.style.display = '';
+  const hi = (serp.highlights || []).map((h) => `<div class="serp-hi ${h.tone}"><span class="dot"></span>${esc(h.text)}</div>`).join('');
+  const rows = serp.rows.map((row) => {
+    const tag = KIND_TAG[row.kind] || KIND_TAG['third-party'];
+    const label = row.kind === 'social' && row.platform ? row.platform : tag.label;
+    return `<div class="serp-row ${tag.cls}">
+      <div class="serp-pos">${row.position}</div>
+      <div class="serp-body">
+        <div class="serp-url">${esc(row.display)} <span class="serp-tag ${tag.cls}">${esc(label)}</span></div>
+        <a class="serp-title" href="${esc(row.link)}" target="_blank" rel="noopener">${esc(row.title)}</a>
+        ${row.snippet ? `<div class="serp-snip">${esc(row.snippet)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  $('r-serp').innerHTML = `
+    <div class="serp-mock">
+      <div class="serp-bar"><span class="serp-q">${esc(serp.query)}</span><span class="serp-mag">⌕</span></div>
+      <div class="serp-list">${rows}</div>
+    </div>
+    <div class="serp-highlights">${hi}</div>`;
 }
 
 /* ── Discovery: pages not linked from the homepage + social footprint ── */

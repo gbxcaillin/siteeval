@@ -88,6 +88,27 @@ export function renderReportHTML(r) {
        </div>`
     : '';
 
+  const serp = disc && disc.serp;
+  const KIND = { you: ['Your site', '#e3f3ec', '#1A5C4A'], social: ['Social', '#f3ebd6', '#8a6d1e'], directory: ['Directory / reviews', '#eee', '#666'], 'third-party': ['Third-party', '#f0f1f3', '#5f6368'] };
+  const serpBlock = serp && serp.rows && serp.rows.length
+    ? `${sectionBand('Search results', 'How you show up in search', 'teal')}
+       <div class="serp">
+         <div class="serp-bar">${esc(serp.query)}<span>⌕</span></div>
+         ${serp.rows.map((row) => {
+           const k = KIND[row.kind] || KIND['third-party'];
+           const label = row.kind === 'social' && row.platform ? row.platform : k[0];
+           return `<div class="serp-row${row.kind === 'you' ? ' you' : ''}">
+             <div class="serp-pos">${row.position}</div>
+             <div>
+               <div class="serp-url">${esc(row.display)} <span class="serp-tag" style="background:${k[1]};color:${k[2]}">${esc(label)}</span></div>
+               <div class="serp-title">${esc(row.title)}</div>
+               ${row.snippet ? `<div class="serp-snip">${esc(row.snippet)}</div>` : ''}
+             </div></div>`;
+         }).join('')}
+       </div>
+       <div class="serp-hi">${(serp.highlights || []).map((h) => `<p class="hi-${h.tone}">${esc(h.text)}</p>`).join('')}</div>`
+    : '';
+
   const rb = r.render && r.render.readability;
   const mobileBlock = rb && rb.verdict && rb.verdict !== 'unknown'
     ? `<div class="mobile mob-${rb.verdict}">
@@ -164,6 +185,19 @@ export function renderReportHTML(r) {
   .crawl { color:#5b6360; font-size:10.5px; margin:10px 0 0; }
   .partial { margin:14px 0 0; padding:11px 14px; border-radius:8px; font-size:11px; background:#f7f1de; border:1px solid #e6d9b0; color:#6b571f; }
   .disc { font-size:11px; color:#3a3f3d; } .disc p { margin:6px 0; } .disc code { background:#f1efe9; padding:1px 5px; border-radius:4px; font-size:10px; } .disc .src { color:#8a908d; }
+  .serp { border:1px solid #e6e6e3; border-radius:10px; overflow:hidden; break-inside:avoid; }
+  .serp-bar { display:flex; justify-content:space-between; padding:9px 14px; border-bottom:1px solid #eee; font-size:12px; color:#202124; }
+  .serp-row { display:flex; gap:10px; padding:9px 14px; border-bottom:1px solid #f3f3f3; break-inside:avoid; }
+  .serp-row.you { background:#f5fbf8; } .serp-row:last-child { border-bottom:0; }
+  .serp-pos { font-family:Georgia,serif; color:#9aa0a6; width:16px; text-align:right; font-size:12px; }
+  .serp-url { font-size:10px; color:#202124; display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+  .serp-tag { font-size:8px; font-weight:700; padding:1px 6px; border-radius:10px; }
+  .serp-title { color:#1a0dab; font-size:12.5px; margin:1px 0 2px; }
+  .serp-snip { color:#4d5156; font-size:10px; line-height:1.45; }
+  .serp-hi { margin-top:10px; } .serp-hi p { margin:4px 0; font-size:11px; padding-left:14px; position:relative; }
+  .serp-hi p::before { content:''; position:absolute; left:0; top:5px; width:7px; height:7px; border-radius:50%; }
+  .serp-hi .hi-good::before { background:#2E8B6E; } .serp-hi .hi-warn::before { background:#B8912F; } .serp-hi .hi-bad::before { background:#C7594B; }
+  .serp-hi .hi-good { color:#1f5f49; } .serp-hi .hi-warn { color:#6b571f; } .serp-hi .hi-bad { color:#8a2f22; }
   .shots { display:flex; gap:14px; align-items:flex-start; break-inside:avoid; }
   .shots figure { margin:0; } .shots figure img { border:1px solid #e6e6e3; border-radius:7px; width:340px; max-width:100%; display:block; }
   .shots figure.m img { width:150px; border-radius:12px; }
@@ -199,6 +233,8 @@ ${sectionBand('Scorecard', 'Five marketing dimensions', 'teal')}
 ${crawlBlock}
 
 ${discBlock}
+
+${serpBlock}
 
 ${editorial ? `${sectionBand('Editorial read', "Strategist's verdict", 'teal')}${editorial}` : ''}
 

@@ -188,6 +188,33 @@ table.league td.cell { text-align:center; color:var(--ink-dim); }
 table.league td.cell.lead { color:var(--white); background: var(--gbx-teal-glow); font-weight:700; }
 table.league td.cell .cg { font-size:11px; color:var(--ink-faint); }
 
+/* Search results (SERP mock) */
+.serp-empty { background: var(--charcoal-2); border:1px dashed var(--line-strong); border-radius: var(--radius); padding:18px 20px; color: var(--ink-dim); font-size:14px; }
+.serp-empty b { color: var(--white); }
+.serp-mock { background:#fff; border:1px solid var(--line-strong); border-radius:14px; overflow:hidden; }
+.serp-bar { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 18px; border-bottom:1px solid #ececec; }
+.serp-q { color:#202124; font-size:15px; font-family:Arial,Helvetica,sans-serif; }
+.serp-mag { color:#5f6368; font-size:18px; }
+.serp-list { padding:8px 6px; }
+.serp-row { display:flex; gap:12px; padding:12px 14px; border-bottom:1px solid #f1f1f1; }
+.serp-row:last-child { border-bottom:0; }
+.serp-pos { font-family:var(--serif); color:#9aa0a6; font-size:14px; width:20px; text-align:right; flex:none; padding-top:2px; }
+.serp-body { min-width:0; font-family:Arial,Helvetica,sans-serif; }
+.serp-url { color:#202124; font-size:12.5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.serp-title { color:#1a0dab; font-size:16px; line-height:1.3; display:inline-block; margin:2px 0 3px; text-decoration:none; }
+.serp-title:hover { text-decoration:underline; }
+.serp-snip { color:#4d5156; font-size:12.5px; line-height:1.5; }
+.serp-tag { font-size:10px; letter-spacing:.3px; padding:2px 8px; border-radius:20px; font-weight:700; white-space:nowrap; }
+.serp-tag.you { background:#e3f3ec; color:#1A5C4A; } .serp-tag.social { background:#f3ebd6; color:#8a6d1e; }
+.serp-tag.dir { background:#eee; color:#666; } .serp-tag.tp { background:#f0f1f3; color:#5f6368; }
+.serp-row.you { background:#f5fbf8; }
+.serp-highlights { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+.serp-hi { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:var(--ink-dim); }
+.serp-hi .dot { width:8px; height:8px; border-radius:50%; margin-top:6px; flex:none; }
+.serp-hi.good .dot { background: var(--good); } .serp-hi.good { color:#CDE9DE; }
+.serp-hi.warn .dot { background: var(--warn); } .serp-hi.warn { color:#E7D3A0; }
+.serp-hi.bad .dot { background: var(--bad); } .serp-hi.bad { color:#E58A7D; }
+
 /* Discovery */
 .disc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; }
 .disc-card { background: var(--charcoal-2); border:1px solid var(--line); border-radius: var(--radius); padding:18px 20px; }
