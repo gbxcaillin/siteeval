@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GBX SiteEval — Marketing Potential Evaluator</title>
+  <meta name="description" content="Enter a company website and get an instant, GBX-branded marketing scorecard: SEO, positioning, conversion, performance and online presence — with prioritised fixes." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <span class="logo" aria-label="GBX Professional Services">
+        <span class="mark">GB<span class="x">X</span></span>
+        <span class="div"></span>
+        <span class="sub">Professional<br />Services</span>
+      </span>
+      <span class="tool">SiteEval</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <p class="eyebrow">Marketing Potential Evaluator</p>
+      <h1>See what a website is <span class="accent">really</span> worth to the business behind it.</h1>
+      <p class="lead">Enter any company's website. GBX SiteEval reads the site, checks how it is found, understood and converts, then returns a clear scorecard and the fixes that matter most — in plain language.</p>
+
+      <form class="evalform" id="evalform" autocomplete="off">
+        <span class="pre">https://</span>
+        <input id="url" name="url" type="text" inputmode="url" placeholder="company-website.com" aria-label="Company website URL" required />
+        <button class="btn" id="go" type="submit">Evaluate</button>
+      </form>
+      <p class="form-note">Runs a live analysis across <b>five marketing dimensions</b> and ~40 checks. No account, no setup required.</p>
+
+      <div class="loading" id="loading" aria-live="polite">
+        <div class="steps" id="steps">
+          <div class="step" data-step="fetch"><span class="dot"></span> Fetching the website…</div>
+          <div class="step" data-step="read"><span class="dot"></span> Reading structure, copy and signals…</div>
+          <div class="step" data-step="score"><span class="dot"></span> Scoring SEO, messaging, conversion, performance & presence…</div>
+          <div class="step" data-step="plan"><span class="dot"></span> Building your prioritised action plan…</div>
+        </div>
+      </div>
+
+      <div class="error-box" id="error"></div>
+    </section>
+
+    <section id="results" aria-live="polite">
+      <div class="report-head">
+        <div class="site">
+          <div class="u" id="r-url"></div>
+          <div class="m" id="r-meta"></div>
+          <div class="adapters" id="r-adapters"></div>
+        </div>
+        <div class="gauge">
+          <div class="ring" id="r-ring"></div>
+          <div class="verdict">
+            <span class="band" id="r-band"></span>
+            <p id="r-headline"></p>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="section-title"><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
+      <div class="cats" id="r-cats"></div>
+
+      <div id="r-editorial-wrap" style="display:none">
+        <h2 class="section-title"><span class="lbl">Editorial read</span>Strategist's verdict</h2>
+        <div class="editorial" id="r-editorial"></div>
+      </div>
+
+      <h2 class="section-title"><span class="lbl">Do this next</span>Prioritised action plan</h2>
+      <div class="plan" id="r-plan"></div>
+
+      <div class="grid2">
+        <div>
+          <h2 class="section-title"><span class="lbl">Fast</span>Quick wins</h2>
+          <ul class="quick" id="r-quick"></ul>
+        </div>
+        <div>
+          <h2 class="section-title"><span class="lbl">Context</span>What we saw</h2>
+          <div class="chips" id="r-snapshot"></div>
+        </div>
+      </div>
+
+      <div class="result-actions">
+        <button class="btn" id="printbtn" type="button">Download / print report</button>
+        <button class="btn ghost" id="againbtn" type="button">Evaluate another site</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>GBX Professional Services — Sharper operations. Stronger commercial outcomes.</span>
+      <span>SiteEval · heuristic engine + optional API depth</span>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
