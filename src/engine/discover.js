@@ -26,7 +26,9 @@ const SOCIAL = [
 const SOCIAL_JUNK = /\/(sharer|share|intent|dialog|plugins|widgets)\b|[?&](u|url|text)=/i;
 
 const NOTABLE_DISALLOW =
-  /(admin|login|signin|staging|dev\b|test\b|old\b|backup|private|portal|account|checkout|cart|wp-admin|cgi|tmp|beta|internal|secret|dashboard|uploads?)/i;
+  /(admin|login|signin|staging|dev\b|test\b|old\b|backup|private|portal|account|checkout|cart|cgi|tmp|beta|internal|secret|dashboard|uploads?)/i;
+// Universal CMS paths that appear on nearly every site — not worth flagging.
+const STANDARD_DISALLOW = /^\/(wp-admin|wp-includes|wp-content|wp-json|wp-login|xmlrpc|cgi-bin|administrator\/?$)/i;
 
 export async function discover(site, facts, searchResult) {
   // Paths reachable by clicking from the homepage.
@@ -54,7 +56,7 @@ export async function discover(site, facts, searchResult) {
   const hiddenPaths = robots.disallow
     .filter((p) => p && p !== '/' && !p.includes('*'))
     .slice(0, 20);
-  const notableHidden = hiddenPaths.filter((p) => NOTABLE_DISALLOW.test(p));
+  const notableHidden = hiddenPaths.filter((p) => NOTABLE_DISALLOW.test(p) && !STANDARD_DISALLOW.test(p));
 
   // Social profiles linked on the site itself.
   const onSite = collectSocials(facts.links.external, site.url);

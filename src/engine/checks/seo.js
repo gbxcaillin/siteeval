@@ -5,6 +5,44 @@ function shortPath(u) {
   try { return new URL(u).pathname || u; } catch { return u; }
 }
 
+/**
+ * Does robots.txt actually block SEARCH engines from the whole site?
+ * User-agent-aware: a `Disallow: /` under GPTBot / CCBot / Google-Extended etc.
+ * (AI-training bots) does NOT block Google/Bing search. Only a root Disallow for
+ * `*` or a named search crawler — with no `Allow: /` override — counts.
+ */
+function robotsBlocksSearch(body) {
+  if (!body) return false;
+  const searchAgents = new Set(['*', 'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider', 'yandex']);
+  const groups = [];
+  let cur = null;
+  for (const raw of body.split('\n')) {
+    const line = raw.replace(/#.*$/, '').trim();
+    if (!line) continue;
+    const m = line.match(/^(user-agent|disallow|allow)\s*:\s*(.*)$/i);
+    if (!m) continue;
+    const field = m[1].toLowerCase();
+    const val = m[2].trim();
+    if (field === 'user-agent') {
+      if (cur && cur.rules.length > 0) { groups.push(cur); cur = null; }
+      if (!cur) cur = { agents: [], rules: [] };
+      cur.agents.push(val.toLowerCase());
+    } else {
+      if (!cur) cur = { agents: ['*'], rules: [] };
+      cur.rules.push({ type: field, path: val });
+    }
+  }
+  if (cur) groups.push(cur);
+
+  const rules = groups
+    .filter((g) => g.agents.some((a) => searchAgents.has(a)))
+    .flatMap((g) => g.rules);
+  if (!rules.length) return false;
+  const disallowRoot = rules.some((r) => r.type === 'disallow' && r.path === '/');
+  const allowRoot = rules.some((r) => r.type === 'allow' && r.path === '/');
+  return disallowRoot && !allowRoot;
+}
+
 /** Search discoverability: can Google find, index and understand this page? */
 export function checkSeo(site, f, ctx = {}) {
   const d = [];
@@ -50,8 +88,8 @@ export function checkSeo(site, f, ctx = {}) {
   if (/noindex/i.test(f.robotsMeta)) {
     d.push({ points: 25, severity: 'bad', finding: 'Page is set to NOINDEX — it is actively hidden from search engines.', rec: 'Remove the noindex directive unless this page is deliberately private.' });
   }
-  if (site.robots.found && /disallow:\s*\/\s*$/im.test(site.robots.body)) {
-    d.push({ points: 15, severity: 'bad', finding: 'robots.txt disallows the entire site — crawlers are blocked from everything.', rec: 'Fix robots.txt so search engines can crawl public pages.' });
+  if (site.robots.found && robotsBlocksSearch(site.robots.body)) {
+    d.push({ points: 15, severity: 'bad', finding: 'robots.txt blocks search engines from the whole site — Google and Bing are told not to crawl any page.', rec: 'Remove the site-wide Disallow for search crawlers (User-agent: *) so public pages can be indexed.' });
   }
 
   // Canonical
