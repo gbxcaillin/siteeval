@@ -1,27 +1,36 @@
 /**
  * Render a full evaluation report as a standalone, GBX-branded HTML document.
- * Dark premium cover page + readable light interior. Self-contained (inline CSS),
- * so it can be printed to PDF in any browser or rendered server-side.
+ * Mostly-white, readable interior broken up by full-bleed teal / black banner
+ * bands. Self-contained (inline CSS) so it prints to PDF anywhere.
  */
 const GRADE_COLOR = { A: '#2E8B6E', B: '#3FA184', C: '#B8912F', D: '#B8912F', E: '#C7594B', F: '#C7594B' };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
-function logoLockup(dark) {
-  const sub = dark ? '#A7ABA9' : '#5b6360';
-  const mark = dark ? '#fff' : '#0A0A0A';
-  return `<span style="display:inline-flex;align-items:center;gap:11px;border:1px solid ${dark ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.18)'};padding:8px 13px;border-radius:8px">
-    <span style="font-family:Georgia,serif;font-weight:700;font-size:23px;letter-spacing:1px;color:${mark};line-height:1">GB<span style="color:#2E8B6E">X</span></span>
-    <span style="width:1px;height:22px;background:${dark ? 'rgba(255,255,255,.22)' : 'rgba(0,0,0,.18)'}"></span>
-    <span style="font-size:9px;letter-spacing:2.2px;color:${sub};text-transform:uppercase;line-height:1.25">Professional<br>Services</span>
+/** GBX lockup in one of three contexts: onLight, onTeal, onDark. */
+function logoLockup(mode = 'onLight') {
+  const conf = {
+    onLight: { mark: '#0A0A0A', x: '#2E8B6E', sub: '#5b6360', border: 'rgba(0,0,0,.18)' },
+    onTeal: { mark: '#ffffff', x: '#0A0A0A', sub: 'rgba(255,255,255,.85)', border: 'rgba(255,255,255,.5)' },
+    onDark: { mark: '#ffffff', x: '#2E8B6E', sub: '#A7ABA9', border: 'rgba(255,255,255,.28)' },
+  }[mode];
+  return `<span style="display:inline-flex;align-items:center;gap:11px;border:1px solid ${conf.border};padding:8px 13px;border-radius:8px">
+    <span style="font-family:Georgia,serif;font-weight:700;font-size:23px;letter-spacing:1px;color:${conf.mark};line-height:1">GB<span style="color:${conf.x}">X</span></span>
+    <span style="width:1px;height:22px;background:${conf.border}"></span>
+    <span style="font-size:9px;letter-spacing:2.2px;color:${conf.sub};text-transform:uppercase;line-height:1.25">Professional<br>Services</span>
   </span>`;
 }
 
 function ring(score, grade) {
   const R = 52, C = 2 * Math.PI * R, off = C * (1 - score / 100), col = GRADE_COLOR[grade] || '#2E8B6E';
-  return `<svg width="132" height="132" viewBox="0 0 132 132" style="transform:rotate(-90deg)">
-    <circle cx="66" cy="66" r="${R}" stroke="rgba(255,255,255,.14)" stroke-width="9" fill="none"/>
+  return `<svg width="128" height="128" viewBox="0 0 132 132" style="transform:rotate(-90deg)">
+    <circle cx="66" cy="66" r="${R}" stroke="rgba(255,255,255,.16)" stroke-width="9" fill="none"/>
     <circle cx="66" cy="66" r="${R}" stroke="${col}" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}"/>
   </svg>`;
+}
+
+/** A full-bleed section header band (teal by default, black for emphasis). */
+function sectionBand(label, title, tone = 'teal') {
+  return `<div class="band band-${tone} section-band"><span class="sb-lbl">${esc(label)}</span><h2>${esc(title)}</h2></div>`;
 }
 
 export function renderReportHTML(r) {
@@ -57,7 +66,6 @@ export function renderReportHTML(r) {
 
   const editorial = r.editorial && r.editorial.verdict
     ? `<div class="edit">
-        <div class="tag">Strategist's read</div>
         <p class="ev">${esc(r.editorial.verdict)}</p>
         ${Array.isArray(r.editorial.topFixes) ? `<ul>${r.editorial.topFixes.map((f) => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
         ${r.editorial.rewriteHeadline ? `<div class="rw"><b>Suggested headline:</b> ${esc(r.editorial.rewriteHeadline)}</div>` : ''}
@@ -70,11 +78,12 @@ export function renderReportHTML(r) {
 
   const disc = r.discovery;
   const path = (u) => { try { return new URL(u).pathname; } catch { return u; } };
-  const discBlock = disc && (disc.unlinkedCount || (disc.socialProfiles || []).length || disc.notableHidden.length)
-    ? `<h2><span class="lbl">Off the map</span>Indexed pages &amp; social footprint</h2>
+  const hasDisc = disc && (disc.unlinkedCount || (disc.socialProfiles || []).length || (disc.notableHidden || []).length);
+  const discBlock = hasDisc
+    ? `${sectionBand('Off the map', 'Indexed pages & social footprint', 'teal')}
        <div class="disc">
         ${disc.unlinkedCount ? `<p><b>${disc.unlinkedCount} orphan page(s)</b> — in the sitemap but not linked from the homepage: ${disc.unlinkedPages.slice(0, 8).map((u) => `<code>${esc(path(u))}</code>`).join(' ')}${disc.unlinkedCount > 8 ? ` +${disc.unlinkedCount - 8} more` : ''}.</p>` : ''}
-        ${disc.notableHidden.length ? `<p><b>Hidden paths</b> (robots.txt): ${disc.notableHidden.slice(0, 8).map((h) => `<code>${esc(h)}</code>`).join(' ')} — confirm these are behind real auth.</p>` : ''}
+        ${(disc.notableHidden || []).length ? `<p><b>Hidden paths</b> (robots.txt): ${disc.notableHidden.slice(0, 8).map((h) => `<code>${esc(h)}</code>`).join(' ')} — confirm these are behind real auth.</p>` : ''}
         ${(disc.socialProfiles || []).length ? `<p><b>Social:</b> ${disc.socialProfiles.map((s) => `${esc(s.platform)} <span class="src">(${s.source === 'search' ? 'in search, not linked' : 'linked'})</span>`).join(' · ')}</p>` : `<p><b>Social:</b> none found.</p>`}
        </div>`
     : '';
@@ -95,41 +104,50 @@ export function renderReportHTML(r) {
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>GBX SiteEval — ${esc(r.meta.host)}</title>
 <style>
-  @page { size: A4; margin: 16mm 15mm; }
+  @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#1A1A1A; font-size:11.5px; line-height:1.5; }
-  h2 { font-family:Georgia,serif; font-weight:400; font-size:19px; color:#0A0A0A; margin:26px 0 12px; }
-  .lbl { display:block; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#8a908d; margin-bottom:3px; }
+  html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#20262e; font-size:11.5px; line-height:1.55; background:#fff; }
 
-  /* Cover */
-  .cover { background:#0A0A0A; color:#EDEDED; height:calc(100vh - 0px); min-height:245mm; margin:-16mm -15mm 0; padding:30mm 22mm; display:flex; flex-direction:column; page-break-after:always;
-    background-image: radial-gradient(600px 300px at 85% 8%, rgba(46,139,110,.18), transparent 60%); }
-  .cover .top { display:flex; justify-content:space-between; align-items:center; }
-  .cover .tool { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:#6E7370; }
-  .cover .mid { margin-top:auto; margin-bottom:auto; }
-  .cover .eyebrow { color:#2E8B6E; letter-spacing:3px; text-transform:uppercase; font-size:11px; margin-bottom:16px; }
-  .cover h1 { font-family:Georgia,serif; font-weight:400; font-size:40px; line-height:1.1; color:#fff; margin:0 0 10px; }
-  .cover .host { font-family:Georgia,serif; font-size:22px; color:#2E8B6E; word-break:break-all; }
-  .cover .scorewrap { display:flex; align-items:center; gap:22px; margin-top:34px; }
-  .cover .scorewrap .val { position:relative; width:132px; height:132px; }
-  .cover .scorewrap .val .g { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .cover .scorewrap .val .g b { font-family:Georgia,serif; font-size:38px; color:#fff; line-height:1; }
-  .cover .scorewrap .val .g span { font-size:11px; color:#8a908d; margin-top:3px; }
-  .cover .scorewrap .verdict { max-width:300px; color:#A7ABA9; }
-  .cover .scorewrap .verdict .band { color:#2E8B6E; letter-spacing:2px; text-transform:uppercase; font-size:10px; }
-  .cover .foot { color:#6E7370; font-size:10px; border-top:1px solid rgba(255,255,255,.1); padding-top:14px; display:flex; justify-content:space-between; }
+  /* Full-bleed bands (reach the page edge despite the 14mm page margin) */
+  .band { margin-left:-14mm; margin-right:-14mm; padding-left:14mm; padding-right:14mm; }
+  .band-teal { background:#2E8B6E; color:#fff; }
+  .band-black { background:#0A0A0A; color:#fff; }
+  .section-band { display:flex; align-items:baseline; gap:14px; padding-top:9px; padding-bottom:9px; margin-top:22px; margin-bottom:14px; page-break-after:avoid; break-after:avoid; }
+  .section-band .sb-lbl { font-size:9px; letter-spacing:2.4px; text-transform:uppercase; opacity:.8; }
+  .section-band h2 { font-family:Georgia,serif; font-weight:400; font-size:18px; margin:0; }
 
-  /* Body */
+  /* Cover (page 1) */
+  .cover { min-height:262mm; display:flex; flex-direction:column; page-break-after:always; }
+  .cover-top { padding-top:12px; padding-bottom:12px; display:flex; align-items:center; justify-content:space-between; }
+  .cover-top .tool { font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(255,255,255,.85); }
+  .cover-mid { flex:1; display:flex; flex-direction:column; justify-content:center; padding:24px 0; }
+  .cover-mid .eyebrow { color:#2E8B6E; letter-spacing:3px; text-transform:uppercase; font-size:11px; margin-bottom:14px; }
+  .cover-mid h1 { font-family:Georgia,serif; font-weight:400; font-size:42px; line-height:1.08; color:#0A0A0A; margin:0 0 12px; }
+  .cover-mid .host { font-family:Georgia,serif; font-size:22px; color:#2E8B6E; word-break:break-all; }
+  .cover-score { padding-top:22px; padding-bottom:22px; display:flex; align-items:center; gap:26px; }
+  .cover-score .val { position:relative; width:128px; height:128px; flex:none; }
+  .cover-score .val .g { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .cover-score .val .g b { font-family:Georgia,serif; font-size:40px; line-height:1; }
+  .cover-score .val .g span { font-size:11px; color:rgba(255,255,255,.6); margin-top:3px; }
+  .cover-score .verdict { color:rgba(255,255,255,.82); }
+  .cover-score .verdict .vb { color:#5fd0aa; letter-spacing:2px; text-transform:uppercase; font-size:10px; font-weight:700; }
+  .cover-score .verdict p { margin:6px 0 0; font-size:14px; max-width:360px; }
+  .cover-foot { padding-top:14px; display:flex; justify-content:space-between; color:#8a908d; font-size:10px; border-top:1px solid #eee; }
+
+  /* Scorecard cards */
   .cats { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
   .cat { border:1px solid #e6e6e3; border-radius:9px; padding:13px 14px; break-inside:avoid; }
   .cat-h { display:flex; justify-content:space-between; align-items:flex-start; }
-  .cat-t { font-weight:700; font-size:12.5px; }
+  .cat-t { font-weight:700; font-size:12.5px; color:#1A1A1A; }
   .cat-b { color:#8a908d; font-size:10px; margin-top:2px; text-transform:capitalize; }
   .cat-g { font-family:Georgia,serif; font-size:22px; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border:1px solid; border-radius:8px; }
   .bar { height:5px; background:#eee; border-radius:5px; margin:10px 0 0; overflow:hidden; }
   .bar i { display:block; height:100%; border-radius:5px; }
   .find { list-style:none; margin:10px 0 0; padding:0; }
   .find li { margin:5px 0; color:#3a3f3d; }
+
+  /* Action plan */
   table { width:100%; border-collapse:collapse; }
   .plan td { border-bottom:1px solid #eee; padding:9px 4px; vertical-align:top; break-inside:avoid; }
   .plan .n { font-family:Georgia,serif; color:#b7bbb8; width:26px; font-size:16px; }
@@ -137,13 +155,14 @@ export function renderReportHTML(r) {
   .pm { font-size:9.5px; color:#8a908d; margin-top:3px; }
   .pri { font-size:8px; letter-spacing:.5px; padding:2px 6px; border-radius:10px; font-weight:700; }
   .pri.high { background:#f6ded9; color:#B0402F; } .pri.medium { background:#f3ebd6; color:#8a6d1e; } .pri.low { background:#eee; color:#777; }
+
+  /* Editorial / notes / discovery / shots */
   .edit { background:#f4f8f6; border:1px solid #dceae4; border-radius:9px; padding:15px 17px; break-inside:avoid; }
-  .edit .tag { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:#2E8B6E; }
-  .edit .ev { font-family:Georgia,serif; font-size:15px; color:#0A0A0A; margin:8px 0 10px; line-height:1.4; }
+  .edit .ev { font-family:Georgia,serif; font-size:15px; color:#0A0A0A; margin:0 0 10px; line-height:1.4; }
   .edit ul { margin:8px 0 0; padding-left:16px; } .edit li { margin:4px 0; }
   .edit .rw { border-left:2px solid #2E8B6E; padding-left:10px; margin-top:10px; font-style:italic; color:#3a3f3d; }
   .crawl { color:#5b6360; font-size:10.5px; margin:10px 0 0; }
-  .partial { margin:0 0 6px; padding:11px 14px; border-radius:8px; font-size:11px; background:#f7f1de; border:1px solid #e6d9b0; color:#6b571f; }
+  .partial { margin:14px 0 0; padding:11px 14px; border-radius:8px; font-size:11px; background:#f7f1de; border:1px solid #e6d9b0; color:#6b571f; }
   .disc { font-size:11px; color:#3a3f3d; } .disc p { margin:6px 0; } .disc code { background:#f1efe9; padding:1px 5px; border-radius:4px; font-size:10px; } .disc .src { color:#8a908d; }
   .shots { display:flex; gap:14px; align-items:flex-start; break-inside:avoid; }
   .shots figure { margin:0; } .shots figure img { border:1px solid #e6e6e3; border-radius:7px; width:340px; max-width:100%; display:block; }
@@ -152,37 +171,40 @@ export function renderReportHTML(r) {
   .mobile { margin:12px 0 0; padding:11px 14px; border-radius:8px; font-size:11px; color:#3a3f3d; background:#f4f8f6; border:1px solid #dceae4; break-inside:avoid; }
   .mobile.mob-unreadable { background:#f6ded9; border-color:#eec7bf; color:#7a2c1f; }
   .mobile.mob-suboptimal { background:#f3ebd6; border-color:#e6d9b0; }
-  .pagefoot { margin-top:30px; border-top:1px solid #eee; padding-top:12px; color:#9aa09d; font-size:9.5px; display:flex; justify-content:space-between; }
+
+  .pagefoot { margin-top:26px; }
+  .pagefoot .band { padding-top:10px; padding-bottom:10px; display:flex; justify-content:space-between; font-size:9.5px; color:rgba(255,255,255,.75); }
 </style></head><body>
 
 <section class="cover">
-  <div class="top">${logoLockup(true)}<span class="tool">SiteEval Report</span></div>
-  <div class="mid">
+  <div class="band band-teal cover-top">${logoLockup('onTeal')}<span class="tool">SiteEval Report</span></div>
+  <div class="cover-mid">
     <div class="eyebrow">Marketing Potential Evaluation</div>
-    <h1>Marketing scorecard<br>& action plan</h1>
+    <h1>Marketing scorecard<br>&amp; action plan</h1>
     <div class="host">${esc(r.meta.host)}</div>
-    <div class="scorewrap">
-      <div class="val">${ring(r.overall.score, r.overall.grade)}<div class="g"><b style="color:${oCol}">${r.overall.grade}</b><span>${r.overall.score}/100</span></div></div>
-      <div class="verdict"><div class="band">${esc(r.overall.band)}</div><p>${esc(r.overall.headline)}</p></div>
-    </div>
   </div>
-  <div class="foot"><span>Prepared ${esc(dateStr)}</span><span>GBX Professional Services — Sharper operations. Stronger commercial outcomes.</span></div>
+  <div class="band band-black cover-score">
+    <div class="val">${ring(r.overall.score, r.overall.grade)}<div class="g"><b style="color:${oCol}">${r.overall.grade}</b><span>${r.overall.score}/100</span></div></div>
+    <div class="verdict"><div class="vb">${esc(r.overall.band)}</div><p>${esc(r.overall.headline)}</p></div>
+  </div>
+  <div class="cover-foot"><span>Prepared ${esc(dateStr)}</span><span>GBX Professional Services — Sharper operations. Stronger commercial outcomes.</span></div>
 </section>
 
-${shots ? `<h2><span class="lbl">How it looks</span>Desktop &amp; mobile</h2>${shots}${mobileBlock}` : ''}
+${shots ? `${sectionBand('How it looks', 'Desktop & mobile', 'teal')}${shots}${mobileBlock}` : ''}
 
 ${r.meta.partialAnalysis ? `<div class="partial"><b>Note:</b> this site renders its content with JavaScript and could not be fully rendered for this report, so the findings below are based on the initial HTML and may understate the site.</div>` : ''}
 
-<h2><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
+${sectionBand('Scorecard', 'Five marketing dimensions', 'teal')}
 <div class="cats">${cats}</div>
 ${crawlBlock}
+
 ${discBlock}
 
-${editorial ? `<h2><span class="lbl">Editorial read</span>Strategist's verdict</h2>${editorial}` : ''}
+${editorial ? `${sectionBand('Editorial read', "Strategist's verdict", 'teal')}${editorial}` : ''}
 
-<h2><span class="lbl">Do this next</span>Prioritised action plan</h2>
+${sectionBand('Do this next', 'Prioritised action plan', 'black')}
 <table class="plan">${plan}</table>
 
-<div class="pagefoot"><span>${esc(r.meta.url)}</span><span>gbxps.com · SiteEval</span></div>
+<div class="pagefoot"><div class="band band-black"><span>${esc(r.meta.url)}</span><span>gbxps.com · SiteEval</span></div></div>
 </body></html>`;
 }
