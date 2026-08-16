@@ -132,6 +132,7 @@ export function renderReportHTML(r) {
   .edit ul { margin:8px 0 0; padding-left:16px; } .edit li { margin:4px 0; }
   .edit .rw { border-left:2px solid #2E8B6E; padding-left:10px; margin-top:10px; font-style:italic; color:#3a3f3d; }
   .crawl { color:#5b6360; font-size:10.5px; margin:10px 0 0; }
+  .partial { margin:0 0 6px; padding:11px 14px; border-radius:8px; font-size:11px; background:#f7f1de; border:1px solid #e6d9b0; color:#6b571f; }
   .shots { display:flex; gap:14px; align-items:flex-start; break-inside:avoid; }
   .shots figure { margin:0; } .shots figure img { border:1px solid #e6e6e3; border-radius:7px; width:340px; max-width:100%; display:block; }
   .shots figure.m img { width:150px; border-radius:12px; }
@@ -157,6 +158,8 @@ export function renderReportHTML(r) {
 </section>
 
 ${shots ? `<h2><span class="lbl">How it looks</span>Desktop &amp; mobile</h2>${shots}${mobileBlock}` : ''}
+
+${r.meta.partialAnalysis ? `<div class="partial"><b>Note:</b> this site renders its content with JavaScript and could not be fully rendered for this report, so the findings below are based on the initial HTML and may understate the site.</div>` : ''}
 
 <h2><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
 <div class="cats">${cats}</div>

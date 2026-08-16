@@ -150,6 +150,10 @@ a:hover { text-decoration: underline; }
 .report-head .site .m { font-size: 13px; color: var(--ink-faint); margin-top: 6px; }
 .report-head .site .m a { color: var(--ink-dim); }
 
+/* Partial-analysis banner (JS-rendered sites) */
+.partial-banner { margin: 26px 0 6px; border:1px solid var(--warn); background: rgba(201,162,74,.09); border-radius: var(--radius); padding: 15px 18px; color: #E7D3A0; font-size: 14px; line-height:1.5; }
+.partial-banner b { color: #F0DFB4; }
+
 /* Lead-gen gate */
 .gate { margin: 34px 0 10px; }
 .gate-inner { background: linear-gradient(180deg, rgba(46,139,110,.09), rgba(26,92,74,.05)); border:1px solid var(--gbx-teal-deep); border-radius: var(--radius); padding: 26px; display:grid; grid-template-columns: 1fr 1fr; gap: 26px; align-items:center; }

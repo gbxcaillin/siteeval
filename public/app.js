@@ -229,11 +229,22 @@ function renderReport(r, keepScroll) {
 
   $('r-url').textContent = r.meta.host;
   $('r-meta').innerHTML = `Analysed <a href="${r.meta.url}" target="_blank" rel="noopener">${r.meta.url}</a> · ${r.meta.elapsedMs} ms · ${new Date(r.meta.fetchedAt).toLocaleString()}`;
-  $('r-adapters').innerHTML = Object.entries(r.meta.adapters).map(([k, v]) => {
+  const pills = Object.entries(r.meta.adapters).map(([k, v]) => {
     const on = v === 'active';
     const label = { pageSpeed: 'PageSpeed', search: 'Search', claude: 'Claude AI' }[k] || k;
     return `<span class="apill ${on ? 'active' : ''}" title="${v}">${label}: ${on ? 'on' : 'off'}</span>`;
-  }).join('');
+  });
+  if (r.meta.renderedAnalysis) pills.push('<span class="apill active" title="This site is built with JavaScript; SiteEval analysed the fully-rendered page.">JS-rendered ✓</span>');
+  $('r-adapters').innerHTML = pills.join('');
+
+  // Partial-analysis banner for JS-rendered sites we could not render.
+  const banner = $('r-partial');
+  if (r.meta.partialAnalysis) {
+    banner.style.display = '';
+    banner.innerHTML = '<b>Heads up — this site renders its content with JavaScript.</b> The headless preview could not run here, so this score is based on the initial HTML only and understates the site. Re-run with the browser preview available (locally) for an accurate read.';
+  } else {
+    banner.style.display = 'none';
+  }
 
   $('r-ring').innerHTML = ring(r.overall.score, r.overall.grade);
   $('r-band').textContent = r.overall.band;

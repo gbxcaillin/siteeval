@@ -1,3 +1,4 @@
+import { load as cheerioLoad } from 'cheerio';
 import { fetchSite } from './fetchSite.js';
 import { extractFacts } from './extract.js';
 import { crawlSite } from './crawl.js';
@@ -33,17 +34,49 @@ export async function analyze(input, opts = {}) {
     // Reachable but error status — still analyse what we got, but flag it.
   }
 
-  const facts = extractFacts(site);
-  const brand = brandName(facts, site);
+  const staticFacts = extractFacts(site);
 
-  // Optional deeper crawl + previews + adapters, all in parallel; none block the core.
-  const [crawl, render, ps, search, critique] = await Promise.all([
-    opts.crawl ? crawlSite(site, facts).catch(() => null) : null,
+  // Render (headless) + adapters run in parallel; render also returns the
+  // fully-rendered DOM so JS-rendered (SPA) sites can be analysed properly.
+  const brand0 = brandName(staticFacts, site);
+  const [render, ps, search, critique] = await Promise.all([
     opts.preview === false ? null : renderViews(site.url).catch(() => null),
     opts.skipAdapters ? null : pageSpeed(site.url).catch(() => null),
-    opts.skipAdapters ? null : searchPresence(brand, site.host).catch(() => null),
-    opts.skipAdapters ? null : claudeCritique(site, facts).catch(() => null),
+    opts.skipAdapters ? null : searchPresence(brand0, site.host).catch(() => null),
+    opts.skipAdapters ? null : claudeCritique(site, staticFacts).catch(() => null),
   ]);
+
+  // Prefer the rendered DOM when it's materially richer than the static shell
+  // (more links / headings / copy) — i.e. the page is built client-side.
+  let facts = staticFacts;
+  let renderedAnalysis = false;
+  if (render && render.html) {
+    const renderedSite = { ...site, html: render.html, $: cheerioLoad(render.html) };
+    const rf = extractFacts(renderedSite);
+    const richer =
+      rf.links.internal.length > staticFacts.links.internal.length ||
+      (staticFacts.headings.h1.length === 0 && rf.headings.h1.length > 0) ||
+      rf.wordCount > staticFacts.wordCount * 1.3;
+    if (richer) {
+      facts = rf;
+      renderedAnalysis = true;
+    }
+  }
+
+  const brand = brandName(facts, site);
+
+  // If the static HTML is an empty shell (no links/headings but scripts present)
+  // and we couldn't render it, the site is client-rendered and this analysis is
+  // only partial — flag it rather than report misleading "missing" findings.
+  const likelyClientRendered =
+    staticFacts.links.internal.length === 0 &&
+    staticFacts.headings.h1.length === 0 &&
+    staticFacts.scriptCount >= 1 &&
+    staticFacts.wordCount < 500;
+  const partialAnalysis = likelyClientRendered && !renderedAnalysis;
+
+  // Crawl runs after facts are settled so SPA sites' rendered nav links are used.
+  const crawl = opts.crawl ? await crawlSite(site, facts).catch(() => null) : null;
 
   const ext = { pageSpeed: ps, search, critique };
   const ctx = { ext, crawl, render };
@@ -109,6 +142,9 @@ export async function analyze(input, opts = {}) {
       isHttps: site.isHttps,
       fetchedAt: site.fetchedAt,
       elapsedMs: Date.now() - startedAt,
+      renderedAnalysis, // true = analysed the JS-rendered DOM, not just static HTML
+      clientRendered: renderedAnalysis || partialAnalysis, // content is JS-injected
+      partialAnalysis, // true = JS-rendered site we could NOT render; findings partial
       adapters: {
         pageSpeed: ps ? (ps.error ? `error: ${ps.error}` : 'active') : 'not configured',
         search: search ? (search.error ? `error: ${search.error}` : 'active') : 'not configured',

@@ -14,7 +14,9 @@ export async function renderViews(url) {
   if (!browser) return null;
 
   try {
-    const desktop = await shoot(browser, url, DESKTOP, false);
+    // Desktop pass also returns the fully-rendered DOM so JS-rendered (SPA)
+    // sites can be analysed on what users actually see, not just the shell.
+    const desktop = await shoot(browser, url, DESKTOP, false, true);
     const mobileCtx = await browser.newContext({
       viewport: MOBILE,
       deviceScaleFactor: 2,
@@ -30,6 +32,7 @@ export async function renderViews(url) {
       desktop: desktop.shot ? { shot: desktop.shot, ...DESKTOP } : null,
       mobile: mobile.shot ? { shot: mobile.shot, ...MOBILE } : null,
       readability: mobile.readability || { verdict: 'unknown', issues: ['Could not render mobile view.'] },
+      html: desktop.html || null, // rendered DOM for analysis (null if unavailable)
     };
   } catch {
     return null;
@@ -41,15 +44,15 @@ export async function renderViews(url) {
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-async function shoot(browser, url, viewport, isMobile) {
+async function shoot(browser, url, viewport, isMobile, captureHtml = false) {
   // Use a real desktop UA — a HeadlessChrome UA gets blocked by many WAFs.
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: 1, isMobile, userAgent: DESKTOP_UA });
-  const out = await shootContext(ctx, url, viewport);
+  const out = await shootContext(ctx, url, viewport, captureHtml);
   await ctx.close().catch(() => {});
   return out;
 }
 
-async function shootContext(ctx, url, viewport) {
+async function shootContext(ctx, url, viewport, captureHtml = false) {
   const page = await ctx.newPage();
   page.setDefaultNavigationTimeout(NAV_TIMEOUT);
 
@@ -68,7 +71,7 @@ async function shootContext(ctx, url, viewport) {
   // If we never got a real page (blocked, reset, DNS), don't screenshot the
   // browser's error page or measure it — report the view as unavailable.
   if (!ok || page.url().startsWith('chrome-error://')) {
-    return { shot: null, readability: null, failed: true };
+    return { shot: null, readability: null, html: null, failed: true };
   }
 
   await page.waitForTimeout(1200); // let late layout/fonts settle
@@ -92,7 +95,16 @@ async function shootContext(ctx, url, viewport) {
     /* no metrics */
   }
 
-  return { shot, readability };
+  let html = null;
+  if (captureHtml) {
+    try {
+      html = await page.content();
+    } catch {
+      /* no DOM */
+    }
+  }
+
+  return { shot, readability, html };
 }
 
 /* Runs inside the page (mobile context). Must be self-contained. */
