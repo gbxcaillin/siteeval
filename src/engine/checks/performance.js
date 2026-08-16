@@ -1,7 +1,7 @@
 import { buildResult } from '../grade.js';
 
 /** On-page performance & technical hygiene (heuristic; PageSpeed adapter can override). */
-export function checkPerformance(site, f) {
+export function checkPerformance(site, f, ctx = {}) {
   const d = [];
   const credits = [];
 
@@ -57,6 +57,18 @@ export function checkPerformance(site, f) {
     const lazy = f.images.filter((i) => i.loading === 'lazy').length;
     if (imgs > 6 && lazy === 0) {
       d.push({ points: 3, severity: 'warn', finding: 'No images use lazy-loading despite several on the page.', rec: 'Add loading="lazy" to below-the-fold images.' });
+    }
+  }
+
+  // Real mobile-readability verdict from the render adapter (when available).
+  const mob = ctx.render && ctx.render.readability;
+  if (mob && mob.verdict && mob.verdict !== 'unknown') {
+    if (mob.verdict === 'unreadable') {
+      d.push({ points: 18, severity: 'bad', priority: 'high', finding: `Effectively unreadable on mobile — ${mob.issues[0] || 'the layout breaks on a phone screen.'}`, rec: 'Rebuild the site responsively so it is legible on mobile — most visitors are on phones.' });
+    } else if (mob.verdict === 'poor') {
+      d.push({ points: 8, severity: 'warn', finding: `Poor mobile experience — ${mob.issues[0] || 'text or layout issues on small screens.'}`, rec: 'Fix mobile layout: remove horizontal scrolling and increase small text.' });
+    } else {
+      credits.push({ finding: 'Renders cleanly and legibly on mobile.' });
     }
   }
 

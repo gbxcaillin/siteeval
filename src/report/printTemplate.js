@@ -68,6 +68,20 @@ export function renderReportHTML(r) {
     ? `<div class="crawl"><b>Pages reviewed (${r.crawl.pagesCrawled + 1}):</b> Homepage, ${r.crawl.pages.map((p) => esc(p.label)).join(', ')}.</div>`
     : '';
 
+  const rb = r.render && r.render.readability;
+  const mobileBlock = rb && rb.verdict && rb.verdict !== 'unknown'
+    ? `<div class="mobile mob-${rb.verdict}">
+        <b>Mobile readability: ${rb.verdict === 'ok' ? 'Reads well' : rb.verdict === 'poor' ? 'Poor' : 'Unreadable'}.</b>
+        ${(rb.issues || []).length ? esc(rb.issues.join(' ')) : 'No blocking mobile issues detected.'}
+      </div>`
+    : '';
+  const shots = r.render && (r.render.desktop || r.render.mobile)
+    ? `<div class="shots">
+        ${r.render.desktop ? `<figure><img src="${r.render.desktop.shot}"><figcaption>Desktop · 16:9</figcaption></figure>` : ''}
+        ${r.render.mobile ? `<figure class="m"><img src="${r.render.mobile.shot}"><figcaption>Mobile</figcaption></figure>` : ''}
+      </div>`
+    : '';
+
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>GBX SiteEval — ${esc(r.meta.host)}</title>
 <style>
   @page { size: A4; margin: 16mm 15mm; }
@@ -118,6 +132,13 @@ export function renderReportHTML(r) {
   .edit ul { margin:8px 0 0; padding-left:16px; } .edit li { margin:4px 0; }
   .edit .rw { border-left:2px solid #2E8B6E; padding-left:10px; margin-top:10px; font-style:italic; color:#3a3f3d; }
   .crawl { color:#5b6360; font-size:10.5px; margin:10px 0 0; }
+  .shots { display:flex; gap:14px; align-items:flex-start; break-inside:avoid; }
+  .shots figure { margin:0; } .shots figure img { border:1px solid #e6e6e3; border-radius:7px; width:340px; max-width:100%; display:block; }
+  .shots figure.m img { width:150px; border-radius:12px; }
+  .shots figcaption { color:#8a908d; font-size:9.5px; margin-top:5px; }
+  .mobile { margin:12px 0 0; padding:11px 14px; border-radius:8px; font-size:11px; color:#3a3f3d; background:#f4f8f6; border:1px solid #dceae4; break-inside:avoid; }
+  .mobile.mob-unreadable { background:#f6ded9; border-color:#eec7bf; color:#7a2c1f; }
+  .mobile.mob-poor { background:#f3ebd6; border-color:#e6d9b0; }
   .pagefoot { margin-top:30px; border-top:1px solid #eee; padding-top:12px; color:#9aa09d; font-size:9.5px; display:flex; justify-content:space-between; }
 </style></head><body>
 
@@ -134,6 +155,8 @@ export function renderReportHTML(r) {
   </div>
   <div class="foot"><span>Prepared ${esc(dateStr)}</span><span>GBX Professional Services — Sharper operations. Stronger commercial outcomes.</span></div>
 </section>
+
+${shots ? `<h2><span class="lbl">How it looks</span>Desktop &amp; mobile</h2>${shots}${mobileBlock}` : ''}
 
 <h2><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
 <div class="cats">${cats}</div>

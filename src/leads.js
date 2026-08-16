@@ -1,11 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
-const LEADS_FILE = join(DATA_DIR, 'leads.jsonl');
+const LEADS_FILE = join(DATA_DIR, 'leads.json');
 
 /** Is lead-gen gating switched on? */
 export function leadgenOn() {
@@ -19,19 +19,13 @@ const TTL_MS = 30 * 60 * 1000;
 export function stashReport(report) {
   const token = randomBytes(12).toString('hex');
   cache.set(token, { report, expires: Date.now() + TTL_MS });
-  sweep();
+  for (const [k, v] of cache) if (v.expires < Date.now()) cache.delete(k);
   return token;
 }
-
 export function claimReport(token) {
   const hit = cache.get(token);
   if (!hit || hit.expires < Date.now()) return null;
   return hit.report;
-}
-
-function sweep() {
-  const now = Date.now();
-  for (const [k, v] of cache) if (v.expires < now) cache.delete(k);
 }
 
 /** Build the un-gated "teaser" a visitor sees before giving their email. */
@@ -53,40 +47,109 @@ export function teaser(report) {
   };
 }
 
+/* ── Lead store (updatable JSON array) ──────────────────────────────── */
+function readAll() {
+  if (!existsSync(LEADS_FILE)) return [];
+  try {
+    return JSON.parse(readFileSync(LEADS_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+function writeAll(list) {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = LEADS_FILE + '.tmp';
+  writeFileSync(tmp, JSON.stringify(list, null, 2));
+  renameSync(tmp, LEADS_FILE); // atomic-ish replace
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Persist a captured lead as one JSON line. Returns { ok } or throws on bad email. */
-export function saveLead({ email, name, company, url, host, score, grade, ip, userAgent }) {
+/**
+ * Persist a captured lead, enriched with prospecting signals pulled from the
+ * report (overall score, ease-of-win, single-page flag, mobile-broken flag,
+ * the fastest win and the top fix). Returns the stored record.
+ */
+export function saveLead({ email, name, company, report, ip, userAgent }) {
   if (!email || !EMAIL_RE.test(email)) {
     const e = new Error('Please enter a valid email address.');
     e.code = 'BAD_EMAIL';
     throw e;
   }
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+  const p = report.prospect || {};
   const record = {
+    id: randomBytes(8).toString('hex'),
     at: new Date().toISOString(),
     email: String(email).trim().toLowerCase(),
     name: (name || '').toString().trim().slice(0, 120),
     company: (company || '').toString().trim().slice(0, 160),
-    url: url || '',
-    host: host || '',
-    score: score ?? null,
-    grade: grade ?? null,
+    url: report.meta.url,
+    host: report.meta.host,
+    score: report.overall.score,
+    grade: report.overall.grade,
+    // Prospecting signals
+    easeScore: p.easeScore ?? null,
+    isSinglePage: !!p.isSinglePage,
+    pages: p.pages ?? null,
+    mobileBroken: !!p.mobileBroken,
+    fastWin: p.fastWin || null,
+    topFix: report.actionPlan?.[0]?.text || null,
+    weakest: [...report.categories].sort((a, b) => a.score - b.score)[0]?.label || null,
+    // CRM state
+    contacted: false,
+    contactedAt: null,
     ip: ip || '',
     userAgent: (userAgent || '').toString().slice(0, 300),
   };
-  appendFileSync(LEADS_FILE, JSON.stringify(record) + '\n');
-  return { ok: true, record };
+  const list = readAll();
+  list.push(record);
+  writeAll(list);
+  return record;
 }
 
-/** Read all captured leads (for a simple admin view). */
-export function allLeads() {
-  if (!existsSync(LEADS_FILE)) return [];
-  return readFileSync(LEADS_FILE, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => {
-      try { return JSON.parse(l); } catch { return null; }
-    })
-    .filter(Boolean);
+/** Toggle / set the contacted state of a lead. Returns the updated record or null. */
+export function setContacted(id, contacted) {
+  const list = readAll();
+  const lead = list.find((l) => l.id === id);
+  if (!lead) return null;
+  lead.contacted = !!contacted;
+  lead.contactedAt = lead.contacted ? new Date().toISOString() : null;
+  writeAll(list);
+  return lead;
+}
+
+/**
+ * List leads with a sort mode:
+ *   recent    — newest first
+ *   score     — lowest overall score first (default: biggest problems on top)
+ *   uncontacted — only not-yet-contacted, lowest score first
+ *   ease      — easiest/fastest win first (highest easeScore)
+ */
+export function listLeads(sort = 'score') {
+  let list = readAll();
+  const byScoreAsc = (a, b) => (a.score ?? 999) - (b.score ?? 999);
+
+  switch (sort) {
+    case 'recent':
+      list.sort((a, b) => (a.at < b.at ? 1 : -1));
+      break;
+    case 'uncontacted':
+      list = list.filter((l) => !l.contacted).sort(byScoreAsc);
+      break;
+    case 'ease':
+      list.sort((a, b) => (b.easeScore ?? -1) - (a.easeScore ?? -1) || byScoreAsc(a, b));
+      break;
+    case 'score':
+    default:
+      list.sort(byScoreAsc);
+  }
+
+  const all = readAll();
+  return {
+    sort,
+    total: all.length,
+    contacted: all.filter((l) => l.contacted).length,
+    uncontacted: all.filter((l) => !l.contacted).length,
+    leads: list,
+  };
 }

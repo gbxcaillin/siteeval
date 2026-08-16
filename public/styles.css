@@ -67,6 +67,8 @@ a:hover { text-decoration: underline; }
 .logo .div { width: 1px; height: 26px; background: var(--line-strong); }
 .logo .sub { font-size: 10px; letter-spacing: 2.4px; color: var(--ink-dim); text-transform: uppercase; line-height: 1.25; }
 .topbar .tool { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-faint); }
+.topnav a { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-faint); margin-left: 18px; }
+.topnav a:hover { color: var(--ink); text-decoration: none; }
 
 /* ── Hero ──────────────────────────────────────────────────── */
 .hero { padding: 66px 0 30px; }
@@ -199,6 +201,26 @@ table.league td.cell .cg { font-size:11px; color:var(--ink-faint); }
 .gauge .verdict { max-width: 340px; }
 .gauge .verdict .band { font-size:12px; letter-spacing:2px; text-transform:uppercase; color: var(--gbx-teal); }
 .gauge .verdict p { margin:6px 0 0; color: var(--ink-dim); font-size:15px; }
+
+/* Desktop & mobile preview */
+.previews { display:grid; grid-template-columns: 1.6fr 0.7fr 1fr; gap: 20px; align-items:start; }
+@media (max-width: 860px){ .previews { grid-template-columns: 1fr 1fr; } .previews .mobile-verdict { grid-column: 1 / -1; } }
+.preview { margin:0; }
+.preview figcaption { color: var(--ink-faint); font-size:12px; margin-top:8px; letter-spacing:.3px; }
+.frame { border:1px solid var(--line-strong); border-radius:10px; overflow:hidden; background:#000; }
+.frame img { display:block; width:100%; height:auto; }
+.frame-mobile { border-radius:18px; border-width:3px; }
+.noshot { color: var(--ink-faint); font-size:12px; padding:40px 12px; text-align:center; }
+.mobile-verdict { background: var(--charcoal-2); border:1px solid var(--line); border-radius: var(--radius); padding:16px 18px; }
+.mv-badge { font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px; }
+.mv-badge .mv-ic { font-size:12px; }
+.mobile-verdict.good { border-color: var(--gbx-teal-deep); } .mobile-verdict.good .mv-badge { color: var(--good); }
+.mobile-verdict.warn .mv-badge { color: var(--warn); }
+.mobile-verdict.bad { border-color:#5a2a24; background: rgba(199,89,75,.08); } .mobile-verdict.bad .mv-badge { color: var(--bad); }
+.mobile-verdict.muted .mv-badge { color: var(--ink-faint); }
+.mobile-issues { margin:11px 0 0; padding-left:16px; color: var(--ink-dim); font-size:13px; }
+.mobile-issues li { margin:5px 0; }
+.mobile-ok { margin:10px 0 0; color: var(--ink-dim); font-size:13px; }
 
 /* Category grid */
 .section-title { font-family: var(--serif); font-size: 24px; color: var(--white); margin: 54px 0 20px; font-weight:400; }

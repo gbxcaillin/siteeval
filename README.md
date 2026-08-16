@@ -40,10 +40,25 @@ was seen.
   page + readable interior). Server-side via headless Chromium when available,
   with an automatic fall back to a print-optimised `/report` view for
   browser "Save as PDF".
-- **Lead-gen mode** *(optional)* — set `LEADGEN_MODE=on` and the full scorecard,
-  action plan and PDF are gated behind an email capture. The visitor sees the
-  overall grade and a teaser; entering their details unlocks everything.
-  Captured leads are appended to `data/leads.jsonl`.
+- **Desktop & mobile capture** — every evaluation renders the site headlessly
+  at **desktop 16:9 (1280×720)** and **mobile (390×844)**, shows both
+  screenshots in the report, and runs a **mobile-readability check** that flags
+  sites which are *unreadable on mobile* (no viewport tag, horizontal overflow,
+  tiny text). The verdict feeds the Performance score and appears in the PDF.
+- **Lead-gen mode + Leads page** *(optional)* — set `LEADGEN_MODE=on` and the
+  full scorecard, action plan and PDF are gated behind an email capture. The
+  visitor sees the overall grade and a teaser; entering their details unlocks
+  everything and files them on the internal **`/leads`** page. Leads are ranked
+  so you always know who to call next, with four sorts:
+  - **Most recent**
+  - **Lowest score** *(default — biggest problems on top)*
+  - **Uncontacted** *(hides contacted leads, lowest score first)*
+  - **Easiest fix** *(fastest win first — e.g. a single-page site that just
+    needs a quick redesign, or one that's broken on mobile)*
+
+  Each lead carries an *ease-of-win* score, flags (single-page, mobile-broken,
+  weakest area), the suggested fastest win, and a one-click **contacted**
+  toggle. Stored in `data/leads.json` (kept local; nothing leaves the machine).
 
 ---
 
@@ -89,9 +104,10 @@ Adapter status is shown live in the report header (on/off pills).
 server.js                Express server + static UI + JSON/PDF endpoints
 src/
   cli.js                 Terminal runner
-  leads.js               Lead-gen gating: report cache, teaser, lead store
+  browser.js             Shared headless-Chromium launcher (graceful if absent)
+  leads.js               Lead-gen gating + lead store, ranking & contacted state
   engine/
-    analyze.js           Orchestrator: fetch → (crawl) → checks → score → plan
+    analyze.js           Orchestrator: fetch → (crawl) → (render) → checks → plan
     fetchSite.js         Live fetch + robots/sitemap/https probes + fetchDoc
     crawl.js             Discover & grade key internal pages; site-wide signals
     extract.js           DOM → flat "facts" object
@@ -99,10 +115,12 @@ src/
     grade.js             Scoring vocabulary (letter grades, bands, result builder)
     checks/              One module per dimension (seo, messaging, conversion,
                          performance, presence)
-    adapters/            Optional: claude.js, pagespeed.js, search.js
+    adapters/            Optional: claude.js, pagespeed.js, search.js,
+                         render.js (desktop+mobile screenshots & readability)
   report/
     printTemplate.js     Standalone branded report HTML (dark cover + interior)
-    pdf.js               Render report HTML → PDF (playwright-core, graceful)
+    pdf.js               Render report HTML → PDF (headless browser, graceful)
+    leadsPage.js         Self-contained branded /leads admin page
 public/
   index.html  styles.css  app.js   Branded single-page front end
 ```
@@ -116,6 +134,9 @@ public/
 | `POST /api/compare` | `{ urls: [...] }` → head-to-head ranking + league table |
 | `GET  /report?url=` | Branded, print-optimised HTML report (browser "Save as PDF") |
 | `POST /api/report.pdf` | `{ url, crawl }` → downloadable branded PDF (or 501 + fallback) |
+| `GET  /leads` | Internal branded Leads admin page |
+| `GET  /api/leads?sort=` | Ranked leads (`recent` / `score` / `uncontacted` / `ease`) |
+| `POST /api/leads/:id/contacted` | `{ contacted }` → mark a lead contacted |
 | `GET  /api/health` | Feature flags (lead-gen, which adapters are configured) |
 
 **Design tokens** (GBX Brand Guide v1.0) live at the top of `public/styles.css`

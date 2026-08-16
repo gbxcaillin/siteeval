@@ -12,6 +12,7 @@ import { checkPresence } from './checks/presence.js';
 import { claudeCritique } from './adapters/claude.js';
 import { pageSpeed } from './adapters/pagespeed.js';
 import { searchPresence } from './adapters/search.js';
+import { renderViews } from './adapters/render.js';
 
 /** Guess a brand name from title / host for the search adapter. */
 function brandName(facts, site) {
@@ -35,16 +36,17 @@ export async function analyze(input, opts = {}) {
   const facts = extractFacts(site);
   const brand = brandName(facts, site);
 
-  // Optional deeper crawl + optional adapters, all in parallel; none block the core.
-  const [crawl, ps, search, critique] = await Promise.all([
+  // Optional deeper crawl + previews + adapters, all in parallel; none block the core.
+  const [crawl, render, ps, search, critique] = await Promise.all([
     opts.crawl ? crawlSite(site, facts).catch(() => null) : null,
+    opts.preview === false ? null : renderViews(site.url).catch(() => null),
     opts.skipAdapters ? null : pageSpeed(site.url).catch(() => null),
     opts.skipAdapters ? null : searchPresence(brand, site.host).catch(() => null),
     opts.skipAdapters ? null : claudeCritique(site, facts).catch(() => null),
   ]);
 
   const ext = { pageSpeed: ps, search, critique };
-  const ctx = { ext, crawl };
+  const ctx = { ext, crawl, render };
 
   const categories = [
     checkSeo(site, facts, ctx),
@@ -94,6 +96,9 @@ export async function analyze(input, opts = {}) {
     .sort((a, b) => b.impact - a.impact)
     .slice(0, 5);
 
+  // Prospect "ease of win": how fast a big improvement is — used to rank leads.
+  const prospect = computeProspect({ facts, crawl, overallScore, categories, render, actionPlan });
+
   return {
     meta: {
       input: String(input),
@@ -128,6 +133,14 @@ export async function analyze(input, opts = {}) {
           seo: crawl.seo,
         }
       : null,
+    render: render
+      ? {
+          desktop: render.desktop || null,
+          mobile: render.mobile || null,
+          readability: render.readability || null,
+        }
+      : null,
+    prospect,
     snapshot: {
       title: facts.title,
       metaDescription: facts.metaDescription,
@@ -136,6 +149,49 @@ export async function analyze(input, opts = {}) {
       platform: categories.find((c) => c.id === 'presence')?.metrics.platform,
       socials: facts.social,
     },
+  };
+}
+
+/**
+ * Estimate how quick and high-impact a win is for a prospect.
+ * Higher easeScore = big improvement available with little site to change —
+ * e.g. a small/single-page site scoring low that just needs a redesign.
+ * Drives the "Easiest fix" sort on the Leads page.
+ */
+function computeProspect({ facts, crawl, overallScore, categories, render, actionPlan }) {
+  // Rough page count — from the crawl if it ran, else distinct internal nav paths.
+  const distinctPaths = new Set();
+  for (const l of facts.links.internal) {
+    try {
+      distinctPaths.add(new URL(l.resolved).pathname.replace(/\/$/, '') || '/');
+    } catch { /* ignore */ }
+  }
+  distinctPaths.delete('/');
+  const pages = crawl && crawl.enabled ? crawl.pagesCrawled + 1 : Math.min(distinctPaths.size + 1, 12);
+  const isSinglePage = pages <= 1 || distinctPaths.size <= 1;
+
+  const headroom = 100 - overallScore; // how much there is to gain
+  const simplicity = isSinglePage ? 100 : Math.max(20, 100 - pages * 9); // less site = simpler fix
+  const mobileBroken = render && render.readability && render.readability.verdict === 'unreadable';
+
+  let easeScore = Math.round(headroom * 0.55 + simplicity * 0.45);
+  if (mobileBroken) easeScore = Math.min(100, easeScore + 8); // obvious, sellable fix
+
+  // Human-readable "fastest win" label.
+  const weakest = [...categories].sort((a, b) => a.score - b.score)[0];
+  let fastWin;
+  if (isSinglePage && overallScore < 65) fastWin = 'Single-page site — a quick redesign is a fast, high-impact win';
+  else if (mobileBroken) fastWin = 'Unreadable on mobile — a responsive rebuild is an easy sell';
+  else if (weakest && weakest.score < 55) fastWin = `Weakest area is ${weakest.label.toLowerCase()} — concentrated, fixable fast`;
+  else fastWin = actionPlan[0] ? `Start with: ${actionPlan[0].text}` : 'Incremental improvements available';
+
+  return {
+    pages,
+    isSinglePage,
+    headroom,
+    easeScore,
+    mobileBroken: !!mobileBroken,
+    fastWin,
   };
 }
 

@@ -6,7 +6,8 @@ import { analyze } from './src/engine/analyze.js';
 import { compare } from './src/engine/compare.js';
 import { renderReportHTML } from './src/report/printTemplate.js';
 import { renderPDF } from './src/report/pdf.js';
-import { leadgenOn, stashReport, claimReport, teaser, saveLead } from './src/leads.js';
+import { leadgenOn, stashReport, claimReport, teaser, saveLead, listLeads, setContacted } from './src/leads.js';
+import { renderLeadsPage } from './src/report/leadsPage.js';
 
 // Load .env if present (tiny loader — no dependency needed).
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -58,9 +59,7 @@ app.post('/api/lead', async (req, res) => {
   }
   try {
     saveLead({
-      email, name, company,
-      url: report.meta.url, host: report.meta.host,
-      score: report.overall.score, grade: report.overall.grade,
+      email, name, company, report,
       ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
       userAgent: req.headers['user-agent'] || '',
     });
@@ -69,6 +68,20 @@ app.post('/api/lead', async (req, res) => {
     const status = err.code === 'BAD_EMAIL' ? 400 : 500;
     res.status(status).json({ error: err.message || 'Could not save your details.' });
   }
+});
+
+// ── Leads (internal) ──
+app.get('/leads', (_req, res) => {
+  res.type('html').send(renderLeadsPage());
+});
+app.get('/api/leads', (req, res) => {
+  const sort = ['recent', 'score', 'uncontacted', 'ease'].includes(req.query.sort) ? req.query.sort : 'score';
+  res.json(listLeads(sort));
+});
+app.post('/api/leads/:id/contacted', (req, res) => {
+  const updated = setContacted(req.params.id, req.body?.contacted !== false);
+  if (!updated) return res.status(404).json({ error: 'Lead not found.' });
+  res.json(updated);
 });
 
 app.post('/api/compare', async (req, res) => {
@@ -81,7 +94,7 @@ app.post('/api/compare', async (req, res) => {
     return res.status(400).json({ error: 'Provide at least two website URLs to compare.' });
   }
   try {
-    const result = await compare(urls.slice(0, 4));
+    const result = await compare(urls.slice(0, 4), { preview: false });
     res.json(result);
   } catch (err) {
     res.status(422).json({ error: err.message || 'Comparison failed.' });

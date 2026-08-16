@@ -239,6 +239,9 @@ function renderReport(r, keepScroll) {
   $('r-band').textContent = r.overall.band;
   $('r-headline').textContent = r.overall.headline;
 
+  // Desktop & mobile preview + mobile-readability flag
+  renderPreviews(r.render);
+
   $('r-cats').innerHTML = r.categories.map(card).join('');
   wireMoreButtons();
 
@@ -315,6 +318,38 @@ function renderCompare(c) {
 
   compareResults.classList.add('on');
   compareResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── Desktop & mobile preview ── */
+const MOBILE_VERDICT = {
+  ok: { label: 'Reads well on mobile', cls: 'good', ic: '●' },
+  poor: { label: 'Poor on mobile', cls: 'warn', ic: '▲' },
+  unreadable: { label: 'Unreadable on mobile', cls: 'bad', ic: '✕' },
+  unknown: { label: 'Mobile view unavailable', cls: 'muted', ic: '–' },
+};
+function renderPreviews(render) {
+  const wrap = $('r-preview-wrap');
+  if (!render || (!render.desktop && !render.mobile)) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  const rb = render.readability || { verdict: 'unknown', issues: [] };
+  const v = MOBILE_VERDICT[rb.verdict] || MOBILE_VERDICT.unknown;
+  const issues = (rb.issues || []).length
+    ? `<ul class="mobile-issues">${rb.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>`
+    : '<p class="mobile-ok">No blocking mobile issues detected.</p>';
+
+  $('r-previews').innerHTML = `
+    <figure class="preview desktop">
+      <div class="frame frame-desktop">${render.desktop ? `<img src="${render.desktop.shot}" alt="Desktop screenshot" />` : '<div class="noshot">No desktop capture</div>'}</div>
+      <figcaption>Desktop · 1280×720 (16:9)</figcaption>
+    </figure>
+    <figure class="preview mobile">
+      <div class="frame frame-mobile">${render.mobile ? `<img src="${render.mobile.shot}" alt="Mobile screenshot" />` : '<div class="noshot">No mobile capture</div>'}</div>
+      <figcaption>Mobile · 390×844</figcaption>
+    </figure>
+    <div class="mobile-verdict ${v.cls}">
+      <div class="mv-badge"><span class="mv-ic">${v.ic}</span> ${v.label}</div>
+      ${issues}
+    </div>`;
 }
 
 /* ── Render helpers ── */
