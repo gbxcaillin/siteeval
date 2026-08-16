@@ -1,5 +1,6 @@
 import { fetchSite } from './fetchSite.js';
 import { extractFacts } from './extract.js';
+import { crawlSite } from './crawl.js';
 import { letterGrade, band } from './grade.js';
 
 import { checkSeo } from './checks/seo.js';
@@ -34,21 +35,23 @@ export async function analyze(input, opts = {}) {
   const facts = extractFacts(site);
   const brand = brandName(facts, site);
 
-  // Optional adapters run in parallel and never block the core result.
-  const [ps, search, critique] = await Promise.all([
+  // Optional deeper crawl + optional adapters, all in parallel; none block the core.
+  const [crawl, ps, search, critique] = await Promise.all([
+    opts.crawl ? crawlSite(site, facts).catch(() => null) : null,
     opts.skipAdapters ? null : pageSpeed(site.url).catch(() => null),
     opts.skipAdapters ? null : searchPresence(brand, site.host).catch(() => null),
     opts.skipAdapters ? null : claudeCritique(site, facts).catch(() => null),
   ]);
 
   const ext = { pageSpeed: ps, search, critique };
+  const ctx = { ext, crawl };
 
   const categories = [
-    checkSeo(site, facts),
-    checkMessaging(site, facts),
-    checkConversion(site, facts),
-    checkPerformance(site, facts),
-    checkPresence(site, facts, ext),
+    checkSeo(site, facts, ctx),
+    checkMessaging(site, facts, ctx),
+    checkConversion(site, facts, ctx),
+    checkPerformance(site, facts, ctx),
+    checkPresence(site, facts, ctx),
   ];
 
   // If PageSpeed returned a real performance score, blend it into that category.
@@ -117,6 +120,14 @@ export async function analyze(input, opts = {}) {
     actionPlan,
     quickWins,
     editorial: critique && !critique.error ? critique : null,
+    crawl: crawl && crawl.enabled
+      ? {
+          pagesCrawled: crawl.pagesCrawled,
+          pages: crawl.pages.map((p) => ({ label: p.label, path: p.path, wordCount: p.wordCount, forms: p.forms })),
+          found: crawl.found,
+          seo: crawl.seo,
+        }
+      : null,
     snapshot: {
       title: facts.title,
       metaDescription: facts.metaDescription,

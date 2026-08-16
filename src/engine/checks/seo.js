@@ -1,7 +1,7 @@
 import { buildResult } from '../grade.js';
 
 /** Search discoverability: can Google find, index and understand this page? */
-export function checkSeo(site, f) {
+export function checkSeo(site, f, ctx = {}) {
   const d = [];
   const credits = [];
 
@@ -77,6 +77,24 @@ export function checkSeo(site, f) {
   }
   if (f.wordCount < 120) {
     d.push({ points: 8, severity: 'warn', finding: `Very thin homepage copy (${f.wordCount} words) — little for search engines to rank on.`, rec: 'Expand the homepage to clearly explain the offer, audience and proof (aim 300+ words).' });
+  }
+
+  // Site-wide hygiene from the crawl (only when crawl ran).
+  const crawl = ctx.crawl;
+  if (crawl && crawl.enabled && crawl.seo.pagesConsidered > 1) {
+    const s = crawl.seo;
+    if (s.missingMetas > 0) {
+      d.push({ points: Math.min(8, 2 + s.missingMetas * 2), severity: 'warn', finding: `${s.missingMetas} of ${s.pagesConsidered} crawled pages have no meta description.`, rec: 'Give every key page a unique, benefit-led meta description.' });
+    }
+    if (s.duplicateTitles > 0) {
+      d.push({ points: Math.min(8, 3 + s.duplicateTitles * 2), severity: 'warn', finding: `${s.duplicateTitles} duplicate page title(s) across the site — pages compete with each other in search.`, rec: 'Make each page title unique to its topic.' });
+    }
+    if (s.thinPages.length > 0) {
+      d.push({ points: Math.min(6, s.thinPages.length * 2), severity: 'warn', finding: `Thin content on: ${s.thinPages.slice(0, 4).join(', ')}.`, rec: 'Add substantive copy to thin pages so they can rank and convert.' });
+    }
+    if (s.missingMetas === 0 && s.duplicateTitles === 0) {
+      credits.push({ finding: `Consistent titles & metas across ${s.pagesConsidered} pages.` });
+    }
   }
 
   return buildResult({

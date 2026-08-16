@@ -1,7 +1,7 @@
 import { buildResult } from '../grade.js';
 
 /** Conversion readiness — can a visitor easily take the next step? */
-export function checkConversion(site, f) {
+export function checkConversion(site, f, ctx = {}) {
   const d = [];
   const credits = [];
 
@@ -47,6 +47,24 @@ export function checkConversion(site, f) {
   const weakCta = f.ctas.some((c) => /learn more|read more|click here/i.test(c)) && !f.ctas.some((c) => /book|get|start|contact|demo|quote|call/i.test(c));
   if (weakCta) {
     d.push({ points: 5, severity: 'warn', finding: 'CTAs are passive ("Learn more") rather than action-driving.', rec: 'Use outcome-led CTA copy ("Book a strategy call", "Get your assessment").' });
+  }
+
+  // Crawl: dedicated contact page and whether it can actually capture a lead.
+  const crawl = ctx.crawl;
+  if (crawl && crawl.enabled) {
+    if (!crawl.found.contact) {
+      d.push({ points: 6, severity: 'warn', finding: 'No dedicated contact page found in the crawl.', rec: 'Add a clear /contact page linked from the main navigation.' });
+    } else {
+      const contactPage = crawl.pages.find((p) => p.type === 'contact');
+      if (contactPage && contactPage.forms === 0) {
+        d.push({ points: 5, severity: 'warn', finding: 'Contact page has no form — visitors must copy an email instead of submitting.', rec: 'Put a short enquiry form on the contact page.' });
+      } else if (contactPage) {
+        credits.push({ finding: 'Dedicated contact page with an enquiry form.' });
+      }
+    }
+    if (crawl.found.caseStudies) {
+      credits.push({ finding: 'Case-studies / client-work section present — strong bottom-of-funnel proof.' });
+    }
   }
 
   return buildResult({

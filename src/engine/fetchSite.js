@@ -32,6 +32,26 @@ async function timedFetch(url, opts = {}) {
   }
 }
 
+/** Fetch a single HTML doc for the crawler — lighter than fetchSite (no side probes). */
+export async function fetchDoc(href) {
+  const started = Date.now();
+  try {
+    const res = await timedFetch(href);
+    const html = res.ok ? await res.text() : '';
+    return {
+      ok: res.ok,
+      status: res.status,
+      url: res.url || href,
+      html,
+      bytes: Buffer.byteLength(html, 'utf8'),
+      ttfbMs: Date.now() - started,
+      $: html ? cheerio.load(html) : null,
+    };
+  } catch {
+    return { ok: false, status: 0, url: href, html: '', bytes: 0, ttfbMs: Date.now() - started, $: null };
+  }
+}
+
 /** Best-effort GET that never throws for a non-200; returns {ok,status,text}. */
 async function softGet(url) {
   try {

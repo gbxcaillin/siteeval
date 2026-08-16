@@ -1,7 +1,9 @@
 import { buildResult } from '../grade.js';
 
 /** Brand & online presence — analytics maturity, social reach, shareability. */
-export function checkPresence(site, f, ext = {}) {
+export function checkPresence(site, f, ctx = {}) {
+  const ext = ctx.ext || {};
+  const crawl = ctx.crawl;
   const d = [];
   const credits = [];
 
@@ -41,8 +43,10 @@ export function checkPresence(site, f, ext = {}) {
     d.push({ points: 2, severity: 'warn', finding: 'No Twitter/X card metadata.', rec: 'Add twitter:card summary_large_image metadata.' });
   }
 
-  // Content freshness / blog signal
-  const hasContentHub = f.links.internal.some((l) => /\/(blog|insights|resources|news|articles|guides)(\/|$)/i.test(l.resolved));
+  // Content freshness / blog signal (confirmed by the crawl when available)
+  const hasContentHub =
+    (crawl && crawl.enabled && crawl.found.blog) ||
+    f.links.internal.some((l) => /\/(blog|insights|resources|news|articles|guides)(\/|$)/i.test(l.resolved));
   if (!hasContentHub) {
     d.push({ points: 6, severity: 'warn', finding: 'No blog / insights / resources section — nothing to fuel organic search, email or social.', rec: 'Publish an insights hub to compound SEO and give sales something to share.' });
   } else {

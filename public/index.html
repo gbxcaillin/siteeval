@@ -25,18 +25,38 @@
       <h1>See what a website is <span class="accent">really</span> worth to the business behind it.</h1>
       <p class="lead">Enter any company's website. GBX SiteEval reads the site, checks how it is found, understood and converts, then returns a clear scorecard and the fixes that matter most — in plain language.</p>
 
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="tab-eval" role="tab" aria-selected="true">Evaluate a site</button>
+        <button class="tab" id="tab-compare" role="tab" aria-selected="false">Compare sites</button>
+      </div>
+
+      <!-- Evaluate mode -->
       <form class="evalform" id="evalform" autocomplete="off">
         <span class="pre">https://</span>
         <input id="url" name="url" type="text" inputmode="url" placeholder="company-website.com" aria-label="Company website URL" required />
         <button class="btn" id="go" type="submit">Evaluate</button>
       </form>
-      <p class="form-note">Runs a live analysis across <b>five marketing dimensions</b> and ~40 checks. No account, no setup required.</p>
+
+      <!-- Compare mode -->
+      <form class="evalform compareform" id="compareform" autocomplete="off" style="display:none">
+        <div class="compare-inputs" id="compare-inputs">
+          <div class="crow"><span class="pre">https://</span><input class="curl" type="text" placeholder="your-site.com" aria-label="Site 1" /></div>
+          <div class="crow"><span class="pre">https://</span><input class="curl" type="text" placeholder="competitor.com" aria-label="Site 2" /></div>
+        </div>
+        <div class="compare-actions">
+          <button class="btn ghost small" id="addsite" type="button">+ Add site</button>
+          <button class="btn" id="cgo" type="submit">Compare</button>
+        </div>
+      </form>
+
+      <label class="crawltoggle"><input type="checkbox" id="crawl" /> <span>Deep crawl — also analyse key pages (about, services, contact, pricing, blog). Slower, more thorough.</span></label>
+      <p class="form-note" id="formnote">Runs a live analysis across <b>five marketing dimensions</b> and ~40 checks. No account, no setup required.</p>
 
       <div class="loading" id="loading" aria-live="polite">
         <div class="steps" id="steps">
           <div class="step" data-step="fetch"><span class="dot"></span> Fetching the website…</div>
           <div class="step" data-step="read"><span class="dot"></span> Reading structure, copy and signals…</div>
-          <div class="step" data-step="score"><span class="dot"></span> Scoring SEO, messaging, conversion, performance & presence…</div>
+          <div class="step" data-step="score"><span class="dot"></span> Scoring across five marketing dimensions…</div>
           <div class="step" data-step="plan"><span class="dot"></span> Building your prioritised action plan…</div>
         </div>
       </div>
@@ -44,6 +64,7 @@
       <div class="error-box" id="error"></div>
     </section>
 
+    <!-- Single-site report -->
     <section id="results" aria-live="polite">
       <div class="report-head">
         <div class="site">
@@ -60,31 +81,74 @@
         </div>
       </div>
 
-      <h2 class="section-title"><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
-      <div class="cats" id="r-cats"></div>
-
-      <div id="r-editorial-wrap" style="display:none">
-        <h2 class="section-title"><span class="lbl">Editorial read</span>Strategist's verdict</h2>
-        <div class="editorial" id="r-editorial"></div>
-      </div>
-
-      <h2 class="section-title"><span class="lbl">Do this next</span>Prioritised action plan</h2>
-      <div class="plan" id="r-plan"></div>
-
-      <div class="grid2">
-        <div>
-          <h2 class="section-title"><span class="lbl">Fast</span>Quick wins</h2>
-          <ul class="quick" id="r-quick"></ul>
-        </div>
-        <div>
-          <h2 class="section-title"><span class="lbl">Context</span>What we saw</h2>
-          <div class="chips" id="r-snapshot"></div>
+      <!-- Lead-gen gate (shown only when the server withholds the full report) -->
+      <div id="gate" class="gate" style="display:none">
+        <div class="gate-inner">
+          <div class="gate-copy">
+            <span class="lbl">One step to your full report</span>
+            <h3 id="gate-title">Unlock the full scorecard & action plan</h3>
+            <p id="gate-sub"></p>
+          </div>
+          <form class="gate-form" id="gateform">
+            <input type="text" id="lead-name" placeholder="Your name" aria-label="Your name" />
+            <input type="text" id="lead-company" placeholder="Company (optional)" aria-label="Company" />
+            <input type="email" id="lead-email" placeholder="Work email" aria-label="Work email" required />
+            <button class="btn" type="submit" id="lead-go">Show me the full report</button>
+            <p class="gate-note" id="gate-error"></p>
+          </form>
         </div>
       </div>
 
+      <div id="fullreport">
+        <h2 class="section-title"><span class="lbl">Scorecard</span>Five marketing dimensions</h2>
+        <div class="cats" id="r-cats"></div>
+
+        <div id="r-crawl-wrap" style="display:none">
+          <h2 class="section-title"><span class="lbl">Site depth</span>Pages reviewed</h2>
+          <div id="r-crawl"></div>
+        </div>
+
+        <div id="r-editorial-wrap" style="display:none">
+          <h2 class="section-title"><span class="lbl">Editorial read</span>Strategist's verdict</h2>
+          <div class="editorial" id="r-editorial"></div>
+        </div>
+
+        <h2 class="section-title"><span class="lbl">Do this next</span>Prioritised action plan</h2>
+        <div class="plan" id="r-plan"></div>
+
+        <div class="grid2">
+          <div>
+            <h2 class="section-title"><span class="lbl">Fast</span>Quick wins</h2>
+            <ul class="quick" id="r-quick"></ul>
+          </div>
+          <div>
+            <h2 class="section-title"><span class="lbl">Context</span>What we saw</h2>
+            <div class="chips" id="r-snapshot"></div>
+          </div>
+        </div>
+
+        <div class="result-actions">
+          <button class="btn" id="pdfbtn" type="button">Download branded PDF</button>
+          <button class="btn ghost" id="againbtn" type="button">Evaluate another site</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison report -->
+    <section id="compare-results">
+      <div class="report-head">
+        <div class="site">
+          <div class="u">Head-to-head</div>
+          <div class="m" id="c-meta"></div>
+        </div>
+      </div>
+      <div class="compare-summary" id="c-summary"></div>
+      <h2 class="section-title"><span class="lbl">Ranking</span>Overall</h2>
+      <div class="ranking" id="c-ranking"></div>
+      <h2 class="section-title"><span class="lbl">League table</span>By dimension</h2>
+      <div class="table-scroll"><table class="league" id="c-table"></table></div>
       <div class="result-actions">
-        <button class="btn" id="printbtn" type="button">Download / print report</button>
-        <button class="btn ghost" id="againbtn" type="button">Evaluate another site</button>
+        <button class="btn ghost" id="c-againbtn" type="button">Run another comparison</button>
       </div>
     </section>
   </main>
