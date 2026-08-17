@@ -400,7 +400,7 @@ function renderDiscovery(disc) {
   const cards = [];
   if (orphans.length) {
     cards.push(`<div class="disc-card"><div class="disc-h"><span class="disc-n">${disc.unlinkedCount}</span> Orphan pages</div>
-      <p class="disc-sub">In the sitemap but not linked from the homepage — indexable, but invisible to visitors clicking through.</p>
+      <p class="disc-sub">In the sitemap but not linked from any page we crawled — indexable, but invisible to visitors clicking through.</p>
       ${pathList(orphans, 'warn')}${disc.unlinkedCount > orphans.length ? `<div class="disc-more">+${disc.unlinkedCount - orphans.length} more</div>` : ''}</div>`);
   }
   if (searchOnly.length) {

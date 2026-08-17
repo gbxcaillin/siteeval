@@ -49,10 +49,20 @@ export async function crawlSite(site, homeFacts) {
   const found = {};
   for (const t of PAGE_TYPES) found[t.key] = false;
 
+  // Internal link paths discovered ON the crawled pages — used so pages reachable
+  // via a section index (e.g. blog posts under /blog) aren't mislabelled orphans.
+  const linkedPaths = new Set();
+
   for (const { url, type, label, doc } of docs) {
     if (!doc.ok || !doc.$) continue;
     const $ = doc.$;
     found[type] = true;
+    $('a[href]').each((_, el) => {
+      try {
+        const u = new URL($(el).attr('href'), url);
+        if (u.host === site.host) linkedPaths.add((u.pathname.replace(/\/+$/, '') || '/'));
+      } catch { /* ignore */ }
+    });
     const title = $('title').first().text().trim();
     const metaDescription = $('meta[name="description"]').attr('content')?.trim() || '';
     const h1 = $('h1').first().text().replace(/\s+/g, ' ').trim();
@@ -84,6 +94,7 @@ export async function crawlSite(site, homeFacts) {
     pagesCrawled: pages.length,
     pages,
     found,
+    linkedPaths: [...linkedPaths],
     seo: {
       missingTitles: all.filter((p) => !p.title).length,
       missingMetas: all.filter((p) => !p.metaDescription).length,

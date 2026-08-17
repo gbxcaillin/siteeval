@@ -76,11 +76,9 @@ export async function analyze(input, opts = {}) {
     staticFacts.wordCount < 500;
   const partialAnalysis = likelyClientRendered && !renderedAnalysis;
 
-  // Crawl + discovery run after facts settle so SPA sites' rendered links are used.
-  const [crawl, discovery] = await Promise.all([
-    opts.crawl ? crawlSite(site, facts).catch(() => null) : null,
-    discover(site, facts, search).catch(() => null),
-  ]);
+  // Crawl first (so its links can inform orphan detection), then discovery.
+  const crawl = opts.crawl ? await crawlSite(site, facts).catch(() => null) : null;
+  const discovery = await discover(site, facts, search, crawl).catch(() => null);
 
   const ext = { pageSpeed: ps, search, critique };
   const ctx = { ext, crawl, render, discovery };

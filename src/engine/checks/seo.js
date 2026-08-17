@@ -144,7 +144,7 @@ export function checkSeo(site, f, ctx = {}) {
   const disc = ctx.discovery;
   if (disc) {
     if (disc.unlinkedCount > 0) {
-      d.push({ points: Math.min(7, 2 + disc.unlinkedCount), severity: 'warn', finding: `${disc.unlinkedCount} page(s) are in the sitemap but not linked from the homepage — orphan pages users can't find by clicking${disc.unlinkedPages[0] ? ` (e.g. ${shortPath(disc.unlinkedPages[0])})` : ''}.`, rec: 'Review orphan pages: link the ones that matter into the navigation, and noindex or remove the rest.' });
+      d.push({ points: Math.min(7, 2 + disc.unlinkedCount), severity: 'warn', finding: `${disc.unlinkedCount} orphan page(s) — in the sitemap but not linked from any page we crawled, so visitors can't reach them by clicking${disc.unlinkedPages[0] ? ` (e.g. ${shortPath(disc.unlinkedPages[0])})` : ''}.`, rec: 'Review orphan pages: link the ones that matter into the navigation, and noindex or remove the rest.' });
     }
     if (disc.search && disc.search.searchOnlyCount > 0) {
       d.push({ points: 3, severity: 'warn', finding: `${disc.search.searchOnlyCount} page(s) show up in search results but aren't linked from the homepage.`, rec: 'Make sure search-visible pages are either linked and on-brand, or removed if outdated.' });

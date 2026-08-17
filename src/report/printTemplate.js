@@ -82,7 +82,7 @@ export function renderReportHTML(r) {
   const discBlock = hasDisc
     ? `${sectionBand('Off the map', 'Indexed pages & social footprint', 'teal')}
        <div class="disc">
-        ${disc.unlinkedCount ? `<p><b>${disc.unlinkedCount} orphan page(s)</b> — in the sitemap but not linked from the homepage: ${disc.unlinkedPages.slice(0, 8).map((u) => `<code>${esc(path(u))}</code>`).join(' ')}${disc.unlinkedCount > 8 ? ` +${disc.unlinkedCount - 8} more` : ''}.</p>` : ''}
+        ${disc.unlinkedCount ? `<p><b>${disc.unlinkedCount} orphan page(s)</b> — in the sitemap but not linked from any crawled page: ${disc.unlinkedPages.slice(0, 8).map((u) => `<code>${esc(path(u))}</code>`).join(' ')}${disc.unlinkedCount > 8 ? ` +${disc.unlinkedCount - 8} more` : ''}.</p>` : ''}
         ${(disc.notableHidden || []).length ? `<p><b>Hidden paths</b> (robots.txt): ${disc.notableHidden.slice(0, 8).map((h) => `<code>${esc(h)}</code>`).join(' ')} — confirm these are behind real auth.</p>` : ''}
         ${(disc.socialProfiles || []).length ? `<p><b>Social:</b> ${disc.socialProfiles.map((s) => `${esc(s.platform)} <span class="src">(${s.source === 'search' ? 'in search, not linked' : 'linked'})</span>`).join(' · ')}</p>` : `<p><b>Social:</b> none found.</p>`}
        </div>`

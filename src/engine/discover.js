@@ -30,10 +30,15 @@ const NOTABLE_DISALLOW =
 // Universal CMS paths that appear on nearly every site — not worth flagging.
 const STANDARD_DISALLOW = /^\/(wp-admin|wp-includes|wp-content|wp-json|wp-login|xmlrpc|cgi-bin|administrator\/?$)/i;
 
-export async function discover(site, facts, searchResult) {
-  // Paths reachable by clicking from the homepage.
+export async function discover(site, facts, searchResult, crawl) {
+  // Paths reachable by clicking from the homepage OR from any crawled page
+  // (so blog posts linked from a /blog index aren't counted as orphans).
   const linkedPaths = new Set([normPath(safePath(site.url))]);
   for (const l of facts.links.internal) linkedPaths.add(normPath(safePath(l.resolved)));
+  if (crawl && crawl.enabled) {
+    for (const p of crawl.linkedPaths || []) linkedPaths.add(normPath(p));
+    for (const p of crawl.pages || []) linkedPaths.add(normPath(p.path)); // crawled pages themselves
+  }
 
   const robots = parseRobots(site.robots);
   const sm = await parseSitemaps(site, robots.sitemaps);
